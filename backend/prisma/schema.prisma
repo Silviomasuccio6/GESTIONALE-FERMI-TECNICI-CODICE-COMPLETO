@@ -1,0 +1,366 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum RoleKey {
+  ADMIN
+  MANAGER
+  OPERATOR
+  VIEWER
+}
+
+enum StoppageStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_PARTS
+  SOLICITED
+  CLOSED
+  CANCELED
+}
+
+enum StoppagePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EmailQueueStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Tenant {
+  id          String      @id @default(cuid())
+  name        String
+  vatNumber   String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  users       User[]
+  sites       Site[]
+  workshops   Workshop[]
+  vehicles    Vehicle[]
+  stoppages   Stoppage[]
+  reminders   Reminder[]
+  auditLogs   AuditLog[]
+
+  @@index([isActive])
+}
+
+model User {
+  id             String      @id @default(cuid())
+  tenantId       String
+  email          String
+  passwordHash   String
+  firstName      String
+  lastName       String
+  status         UserStatus  @default(ACTIVE)
+  isEmailVerified Boolean    @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  roles          UserRole[]
+  createdStoppages Stoppage[] @relation("StoppageCreator")
+  passwordResetTokens PasswordResetToken[]
+  invitationTokens InvitationToken[]
+  refreshSessions RefreshSession[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, status])
+}
+
+model RefreshSession {
+  id             String   @id @default(cuid())
+  userId         String
+  tenantId       String
+  tokenHash      String   @unique
+  userAgent      String?
+  ipAddress      String?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  replacedById   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([tenantId, createdAt])
+}
+
+model PasswordResetToken {
+  id          String   @id @default(cuid())
+  userId      String
+  tokenHash   String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, expiresAt])
+}
+
+model InvitationToken {
+  id          String   @id @default(cuid())
+  userId      String
+  tokenHash   String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, expiresAt])
+}
+
+model Role {
+  id          String      @id @default(cuid())
+  key         RoleKey     @unique
+  name        String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model Site {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  address     String
+  city        String
+  contactName String?
+  email       String?
+  phone       String?
+  notes       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  vehicles    Vehicle[]
+  stoppages   Stoppage[]
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, city])
+}
+
+model Workshop {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  whatsapp    String?
+  address     String?
+  city        String?
+  notes       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  stoppages   Stoppage[]
+
+  @@index([tenantId, isActive])
+}
+
+model Vehicle {
+  id          String    @id @default(cuid())
+  tenantId    String
+  siteId      String
+  plate       String
+  brand       String
+  model       String
+  year        Int?
+  currentKm   Int?
+  maintenanceIntervalKm Int?
+  notes       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  site        Site      @relation(fields: [siteId], references: [id])
+  photos      VehiclePhoto[]
+  stoppages   Stoppage[]
+
+  @@unique([tenantId, plate])
+  @@index([tenantId, siteId])
+}
+
+model VehiclePhoto {
+  id          String    @id @default(cuid())
+  vehicleId   String
+  filePath    String
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  createdAt   DateTime  @default(now())
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId])
+}
+
+model Stoppage {
+  id                    String         @id @default(cuid())
+  tenantId              String
+  siteId                String
+  vehicleId             String
+  workshopId            String
+  createdByUserId       String
+  reason                String
+  notes                 String?
+  closureSummary        String?
+  status                StoppageStatus @default(OPEN)
+  priority              StoppagePriority @default(MEDIUM)
+  assignedToUserId      String?
+  estimatedCostPerDay   Float?
+  openedAt              DateTime
+  closedAt              DateTime?
+  reminderAfterDays     Int?
+  lastReminderSentAt    DateTime?
+  totalRemindersSent    Int            @default(0)
+  workshopEmailSnapshot String?
+  workshopPhoneSnapshot String?
+  workshopWhatsappSnapshot String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  deletedAt             DateTime?
+  tenant                Tenant         @relation(fields: [tenantId], references: [id])
+  site                  Site           @relation(fields: [siteId], references: [id])
+  vehicle               Vehicle        @relation(fields: [vehicleId], references: [id])
+  workshop              Workshop       @relation(fields: [workshopId], references: [id])
+  createdBy             User           @relation("StoppageCreator", fields: [createdByUserId], references: [id])
+  photos                StoppagePhoto[]
+  reminders             Reminder[]
+  events                StoppageEvent[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, openedAt])
+}
+
+model StoppageEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  stoppageId  String
+  userId      String?
+  type        String
+  message     String
+  payload     Json?
+  createdAt   DateTime @default(now())
+  stoppage    Stoppage @relation(fields: [stoppageId], references: [id])
+
+  @@index([tenantId, stoppageId, createdAt])
+}
+
+model StoppagePhoto {
+  id          String    @id @default(cuid())
+  stoppageId  String
+  filePath    String
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  createdAt   DateTime  @default(now())
+  stoppage    Stoppage  @relation(fields: [stoppageId], references: [id])
+
+  @@index([stoppageId])
+}
+
+model Reminder {
+  id            String   @id @default(cuid())
+  tenantId      String
+  stoppageId    String
+  type          String
+  channel       String
+  recipient     String
+  subject       String?
+  body          String
+  sentAt        DateTime @default(now())
+  success       Boolean  @default(true)
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  stoppage      Stoppage @relation(fields: [stoppageId], references: [id])
+
+  @@index([tenantId, sentAt])
+  @@index([stoppageId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  action      String
+  resource    String
+  resourceId  String?
+  details     Json?
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([resource, resourceId])
+}
+
+model EmailQueue {
+  id            String           @id @default(cuid())
+  tenantId      String?
+  type          String
+  recipient     String
+  subject       String
+  body          String
+  meta          Json?
+  status        EmailQueueStatus @default(PENDING)
+  attempts      Int              @default(0)
+  maxAttempts   Int              @default(5)
+  nextAttemptAt DateTime         @default(now())
+  lastError     String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([status, nextAttemptAt])
+}

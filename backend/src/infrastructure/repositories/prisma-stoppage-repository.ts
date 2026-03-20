@@ -1,0 +1,97 @@
+import { StoppageStatus } from "@prisma/client";
+import { StoppageRepository } from "../../domain/repositories/stoppage-repository.js";
+import { prisma } from "../database/prisma/client.js";
+
+const sortableFields = new Set(["openedAt", "createdAt", "updatedAt", "status", "priority", "closedAt"]);
+
+export class PrismaStoppageRepository implements StoppageRepository {
+  async list(
+    tenantId: string,
+    params: {
+      search?: string;
+      status?: string;
+      siteId?: string;
+      workshopId?: string;
+      skip: number;
+      take: number;
+      sortBy?: string;
+      sortDir?: "asc" | "desc";
+    }
+  ) {
+    const where = {
+      tenantId,
+      deletedAt: null,
+      ...(params.status ? { status: params.status as StoppageStatus } : {}),
+      ...(params.siteId ? { siteId: params.siteId } : {}),
+      ...(params.workshopId ? { workshopId: params.workshopId } : {}),
+      ...(params.search
+        ? {
+            OR: [
+              { reason: { contains: params.search, mode: "insensitive" as const } },
+              { vehicle: { plate: { contains: params.search, mode: "insensitive" as const } } },
+              { site: { name: { contains: params.search, mode: "insensitive" as const } } },
+              { workshop: { name: { contains: params.search, mode: "insensitive" as const } } }
+            ]
+          }
+        : {})
+    };
+
+    const sortBy = params.sortBy && sortableFields.has(params.sortBy) ? params.sortBy : "openedAt";
+    const orderBy = { [sortBy]: params.sortDir ?? "desc" } as const;
+
+    const [total, data] = await Promise.all([
+      prisma.stoppage.count({ where }),
+      prisma.stoppage.findMany({
+        where,
+        skip: params.skip,
+        take: params.take,
+        orderBy,
+        include: { site: true, vehicle: true, workshop: true, photos: true, reminders: true }
+      })
+    ]);
+
+    return { data, total };
+  }
+
+  getById(tenantId: string, id: string) {
+    return prisma.stoppage.findFirst({
+      where: { id, tenantId, deletedAt: null },
+      include: { site: true, vehicle: true, workshop: true, photos: true, reminders: { orderBy: { sentAt: "desc" } } }
+    });
+  }
+
+  create(tenantId: string, input: Record<string, unknown>) {
+    return prisma.stoppage.create({ data: { tenantId, ...input } as never, include: { site: true, vehicle: true, workshop: true, photos: true } });
+  }
+
+  async update(tenantId: string, id: string, input: Record<string, unknown>) {
+    await prisma.stoppage.updateMany({ where: { id, tenantId, deletedAt: null }, data: input as never });
+    return prisma.stoppage.findFirst({
+      where: { id, tenantId, deletedAt: null },
+      include: { site: true, vehicle: true, workshop: true, photos: true, reminders: true }
+    });
+  }
+
+  async delete(tenantId: string, id: string): Promise<void> {
+    await prisma.stoppage.updateMany({ where: { id, tenantId, deletedAt: null }, data: { deletedAt: new Date() } });
+  }
+
+  listForAutomaticReminders(now: Date) {
+    return prisma.stoppage.findMany({
+      where: {
+        deletedAt: null,
+        status: { in: ["OPEN", "IN_PROGRESS", "WAITING_PARTS", "SOLICITED"] },
+        reminderAfterDays: { not: null },
+        openedAt: { lt: now }
+      },
+      include: { workshop: true, vehicle: true, site: true }
+    });
+  }
+
+  async markReminderSent(stoppageId: string, sentAt: Date): Promise<void> {
+    await prisma.stoppage.update({
+      where: { id: stoppageId },
+      data: { lastReminderSentAt: sentAt, totalRemindersSent: { increment: 1 }, status: "SOLICITED" }
+    });
+  }
+}

@@ -1,0 +1,537 @@
+import jwt from "jsonwebtoken";
+import {
+  PLAN_MONTHLY_PRICING_EUR,
+  SAAS_PLANS,
+  ensureKnownPlan,
+  estimateLicenseMonthlyRevenue,
+  getFeatureListForPlan,
+  getPlanMonthlyPrice
+} from "./feature-entitlements-service.js";
+import {
+  PlatformAdminRepository,
+  PlatformLicense,
+  PlatformLicenseStatus
+} from "../../domain/repositories/platform-admin-repository.js";
+import { env } from "../../shared/config/env.js";
+import { AppError } from "../../shared/errors/app-error.js";
+import { PlatformAlertService } from "./platform-alert-service.js";
+import { PlatformLoginGuardService } from "./platform-login-guard-service.js";
+
+type QuickAction =
+  | "ACTIVATE_LICENSE"
+  | "SUSPEND_LICENSE"
+  | "RENEW_30_DAYS"
+  | "RENEW_365_DAYS"
+  | "DEACTIVATE_TENANT"
+  | "REACTIVATE_TENANT";
+
+type SaasPlan = (typeof SAAS_PLANS)[number];
+
+type BreakdownRow = {
+  plan: SaasPlan;
+  basePrice: number;
+  activeTenants: number;
+  totalTenants: number;
+  seatsTotal: number;
+  estimatedRevenue: number;
+};
+
+type Snapshot = {
+  month: string;
+  mrrTotal: number;
+  mrrLost: number;
+  mrrByPlan: Record<SaasPlan, number>;
+  tenantsByPlan: Record<SaasPlan, number>;
+  breakdown: BreakdownRow[];
+};
+
+const defaultLicense: PlatformLicense = {
+  plan: "STARTER",
+  seats: 3,
+  status: "ACTIVE",
+  expiresAt: null,
+  updatedAt: undefined,
+  priceMonthly: null,
+  billingCycle: "monthly"
+};
+
+const addDaysIso = (base: Date, days: number) => {
+  const next = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+  return next.toISOString();
+};
+
+const toMonthStart = (month?: string) => {
+  if (month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    const [year, m] = month.split("-").map(Number);
+    return new Date(Date.UTC(year, (m ?? 1) - 1, 1, 0, 0, 0, 0));
+  }
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+};
+
+const toMonthEnd = (start: Date) =>
+  new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+
+const shiftMonth = (start: Date, diff: number) =>
+  new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + diff, 1, 0, 0, 0, 0));
+
+const toMonthKey = (value: Date) => `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}`;
+
+const money = (value: number) => Number(value.toFixed(2));
+
+const csvEscape = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+export class PlatformAdminService {
+  constructor(
+    private readonly repository: PlatformAdminRepository,
+    private readonly alerts: PlatformAlertService,
+    private readonly loginGuard: PlatformLoginGuardService
+  ) {}
+
+  async login(input: { email: string; password: string; ip: string }) {
+    this.loginGuard.assertAllowed(input.ip, input.email);
+
+    if (input.email !== env.PLATFORM_ADMIN_EMAIL || input.password !== env.PLATFORM_ADMIN_PASSWORD) {
+      const failure = this.loginGuard.registerFailure(input.ip, input.email);
+
+      if (failure.locked) {
+        await this.alerts.notify({
+          type: "PLATFORM_LOGIN_LOCKED",
+          actor: input.email,
+          sourceIp: input.ip,
+          details: `Login locked after ${failure.failures} failures. blockedUntil=${failure.blockedUntil ?? "n/a"}`
+        });
+      } else if (failure.failures >= Math.max(3, env.PLATFORM_LOGIN_MAX_ATTEMPTS - 1)) {
+        await this.alerts.notify({
+          type: "PLATFORM_LOGIN_FAILURES",
+          actor: input.email,
+          sourceIp: input.ip,
+          details: `Repeated failed login attempts: ${failure.failures}`
+        });
+      }
+
+      throw new AppError("Credenziali platform admin non valide", 401, "UNAUTHORIZED");
+    }
+
+    this.loginGuard.registerSuccess(input.ip, input.email);
+
+    const token = jwt.sign(
+      {
+        userId: "platform-admin",
+        tenantId: "platform",
+        roles: ["PLATFORM_ADMIN"],
+        permissions: ["platform:manage"],
+        platformAdmin: true,
+        tokenType: "platform"
+      },
+      env.PLATFORM_JWT_SECRET,
+      { expiresIn: env.PLATFORM_JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
+    );
+
+    return {
+      token,
+      user: { id: "platform-admin", email: env.PLATFORM_ADMIN_EMAIL, firstName: "Platform", lastName: "Admin", roles: ["PLATFORM_ADMIN"] }
+    };
+  }
+
+  async listTenantsWithLicenses() {
+    const tenants = await this.repository.listTenants();
+    const data = await Promise.all(
+      tenants.map(async (tenant) => {
+        const owners = tenant.users.filter((u) => u.roles.some((r) => r.role.key === "ADMIN"));
+        const latestLicense = (await this.repository.getLatestLicense(tenant.id)) ?? defaultLicense;
+        const plan = ensureKnownPlan(latestLicense.plan);
+        const license = {
+          ...latestLicense,
+          plan,
+          priceMonthly: latestLicense.priceMonthly ?? getPlanMonthlyPrice(plan),
+          billingCycle: latestLicense.billingCycle ?? "monthly"
+        };
+
+        return {
+          id: tenant.id,
+          name: tenant.name,
+          isActive: tenant.isActive,
+          createdAt: tenant.createdAt,
+          updatedAt: tenant.updatedAt,
+          owner: owners[0]
+            ? {
+                id: owners[0].id,
+                firstName: owners[0].firstName,
+                lastName: owners[0].lastName,
+                email: owners[0].email,
+                status: owners[0].status
+              }
+            : null,
+          usersCount: tenant._count.users,
+          vehiclesCount: tenant._count.vehicles,
+          stoppagesCount: tenant._count.stoppages,
+          license,
+          features: getFeatureListForPlan(plan)
+        };
+      })
+    );
+    return { data };
+  }
+
+  async listRecentEvents(limit: number) {
+    const data = await this.repository.listRecentPlatformEvents(limit);
+    return { data };
+  }
+
+  async listUsersGlobal() {
+    const data = await this.repository.listUsersGlobal();
+    return { data };
+  }
+
+  async updateLicense(input: {
+    tenantId: string;
+    actorUserId: string;
+    sourceIp: string;
+    plan: string;
+    seats: number;
+    status: PlatformLicenseStatus;
+    expiresAt?: string | null;
+    priceMonthly?: number | null;
+    billingCycle?: "monthly" | "yearly";
+  }) {
+    const tenant = await this.repository.getTenantById(input.tenantId);
+    if (!tenant) throw new AppError("Tenant non trovato", 404, "NOT_FOUND");
+
+    const before = (await this.repository.getLatestLicense(input.tenantId)) ?? defaultLicense;
+    const after: PlatformLicense = {
+      plan: ensureKnownPlan(input.plan),
+      seats: input.seats,
+      status: input.status,
+      expiresAt: input.expiresAt ?? null,
+      updatedAt: new Date().toISOString(),
+      priceMonthly: input.priceMonthly === undefined ? (before.priceMonthly ?? null) : input.priceMonthly,
+      billingCycle: input.billingCycle ?? before.billingCycle ?? "monthly"
+    };
+
+    await this.repository.setLicense(input.tenantId, input.actorUserId, after);
+    await this.repository.appendPlatformAudit({
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      action: "PLATFORM_LICENSE_UPDATED",
+      resource: "tenant",
+      resourceId: input.tenantId,
+      details: {
+        actor: input.actorUserId,
+        sourceIp: input.sourceIp,
+        happenedAt: new Date().toISOString(),
+        before,
+        after
+      }
+    });
+
+    await this.alerts.notify({
+      type: "PLATFORM_LICENSE_CHANGED",
+      tenant,
+      actor: input.actorUserId,
+      sourceIp: input.sourceIp,
+      before,
+      after
+    });
+
+    return { updated: true, before, after };
+  }
+
+  async updateTenantStatus(input: { tenantId: string; actorUserId: string; sourceIp: string; isActive: boolean }) {
+    const tenant = await this.repository.getTenantById(input.tenantId);
+    if (!tenant) throw new AppError("Tenant non trovato", 404, "NOT_FOUND");
+
+    const before = { isActive: tenant.isActive };
+    const after = { isActive: input.isActive };
+
+    await this.repository.setTenantActive(input.tenantId, input.isActive);
+    await this.repository.appendPlatformAudit({
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      action: "PLATFORM_TENANT_STATUS_CHANGED",
+      resource: "tenant",
+      resourceId: input.tenantId,
+      details: {
+        actor: input.actorUserId,
+        sourceIp: input.sourceIp,
+        happenedAt: new Date().toISOString(),
+        before,
+        after
+      }
+    });
+
+    await this.alerts.notify({
+      type: "PLATFORM_TENANT_STATUS_CHANGED",
+      tenant,
+      actor: input.actorUserId,
+      sourceIp: input.sourceIp,
+      before,
+      after
+    });
+
+    return { updated: true, before, after };
+  }
+
+  async executeQuickAction(input: {
+    tenantId: string;
+    actorUserId: string;
+    sourceIp: string;
+    action: QuickAction;
+  }) {
+    const tenant = await this.repository.getTenantById(input.tenantId);
+    if (!tenant) throw new AppError("Tenant non trovato", 404, "NOT_FOUND");
+
+    const currentLicense = (await this.repository.getLatestLicense(input.tenantId)) ?? defaultLicense;
+    const now = new Date();
+
+    if (input.action === "DEACTIVATE_TENANT" || input.action === "REACTIVATE_TENANT") {
+      const isActive = input.action === "REACTIVATE_TENANT";
+      return this.updateTenantStatus({
+        tenantId: input.tenantId,
+        actorUserId: input.actorUserId,
+        sourceIp: input.sourceIp,
+        isActive
+      });
+    }
+
+    let nextLicense = { ...currentLicense };
+
+    if (input.action === "ACTIVATE_LICENSE") {
+      nextLicense = { ...nextLicense, status: "ACTIVE" };
+    }
+    if (input.action === "SUSPEND_LICENSE") {
+      nextLicense = { ...nextLicense, status: "SUSPENDED" };
+    }
+    if (input.action === "RENEW_30_DAYS" || input.action === "RENEW_365_DAYS") {
+      const days = input.action === "RENEW_30_DAYS" ? 30 : 365;
+      const base = nextLicense.expiresAt ? new Date(nextLicense.expiresAt) : now;
+      const safeBase = base.getTime() > now.getTime() ? base : now;
+      nextLicense = {
+        ...nextLicense,
+        status: "ACTIVE",
+        expiresAt: addDaysIso(safeBase, days)
+      };
+    }
+
+    const after: PlatformLicense = { ...nextLicense, updatedAt: new Date().toISOString() };
+
+    await this.repository.setLicense(input.tenantId, input.actorUserId, after);
+    await this.repository.appendPlatformAudit({
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      action: "PLATFORM_LICENSE_QUICK_ACTION",
+      resource: "tenant",
+      resourceId: input.tenantId,
+      details: {
+        quickAction: input.action,
+        actor: input.actorUserId,
+        sourceIp: input.sourceIp,
+        happenedAt: new Date().toISOString(),
+        before: currentLicense,
+        after
+      }
+    });
+
+    await this.alerts.notify({
+      type: "PLATFORM_LICENSE_CHANGED",
+      tenant,
+      actor: input.actorUserId,
+      sourceIp: input.sourceIp,
+      before: currentLicense,
+      after
+    });
+
+    return { updated: true, action: input.action, before: currentLicense, after };
+  }
+
+  private async buildSnapshot(
+    tenants: Array<{ id: string; isActive: boolean }>,
+    at: Date,
+    licenseCache: Map<string, PlatformLicense | null>
+  ): Promise<Snapshot> {
+    const month = toMonthKey(at);
+    const mrrByPlan = Object.fromEntries(SAAS_PLANS.map((plan) => [plan, 0])) as Record<SaasPlan, number>;
+    const tenantsByPlan = Object.fromEntries(SAAS_PLANS.map((plan) => [plan, 0])) as Record<SaasPlan, number>;
+    const breakdownMap = Object.fromEntries(
+      SAAS_PLANS.map((plan) => [
+        plan,
+        {
+          plan,
+          basePrice: getPlanMonthlyPrice(plan),
+          activeTenants: 0,
+          totalTenants: 0,
+          seatsTotal: 0,
+          estimatedRevenue: 0
+        }
+      ])
+    ) as Record<SaasPlan, BreakdownRow>;
+
+    let mrrTotal = 0;
+    let mrrLost = 0;
+
+    const getLicenseAt = async (tenantId: string) => {
+      const cacheKey = `${tenantId}:${month}`;
+      if (!licenseCache.has(cacheKey)) {
+        const license = await this.repository.getLatestLicenseAtOrBefore(tenantId, at);
+        licenseCache.set(cacheKey, license);
+      }
+      return licenseCache.get(cacheKey) ?? null;
+    };
+
+    for (const tenant of tenants) {
+      const snapshot = (await getLicenseAt(tenant.id)) ?? defaultLicense;
+      const plan = ensureKnownPlan(snapshot.plan);
+      const revenue = estimateLicenseMonthlyRevenue({
+        plan,
+        seats: snapshot.seats,
+        priceMonthly: snapshot.priceMonthly,
+        billingCycle: snapshot.billingCycle
+      });
+
+      const row = breakdownMap[plan];
+      row.totalTenants += 1;
+      row.seatsTotal += revenue.seatsFactor;
+      tenantsByPlan[plan] += 1;
+
+      if (snapshot.status === "ACTIVE") {
+        row.activeTenants += 1;
+        row.estimatedRevenue += revenue.estimatedMrr;
+        mrrTotal += revenue.estimatedMrr;
+        mrrByPlan[plan] += revenue.estimatedMrr;
+      }
+
+      if (snapshot.status === "SUSPENDED" || snapshot.status === "EXPIRED") {
+        mrrLost += revenue.estimatedMrr;
+      }
+    }
+
+    const breakdown = SAAS_PLANS.map((plan) => {
+      const row = breakdownMap[plan];
+      return {
+        ...row,
+        estimatedRevenue: money(row.estimatedRevenue)
+      };
+    });
+
+    return {
+      month,
+      mrrTotal: money(mrrTotal),
+      mrrLost: money(mrrLost),
+      mrrByPlan: SAAS_PLANS.reduce(
+        (acc, plan) => ({ ...acc, [plan]: money(mrrByPlan[plan]) }),
+        {} as Record<SaasPlan, number>
+      ),
+      tenantsByPlan,
+      breakdown
+    };
+  }
+
+  async revenueReport(input: { month?: string; months: number }) {
+    const selectedMonthStart = toMonthStart(input.month);
+    const previousMonthStart = shiftMonth(selectedMonthStart, -1);
+    const trendSize = Math.max(2, Math.min(12, input.months));
+
+    const trendMonthStarts = Array.from({ length: trendSize }, (_, idx) =>
+      shiftMonth(selectedMonthStart, idx - (trendSize - 1))
+    );
+
+    const tenants = await this.repository.listTenants();
+    const licenseCache = new Map<string, PlatformLicense | null>();
+
+    const selectedSnapshot = await this.buildSnapshot(
+      tenants,
+      toMonthEnd(selectedMonthStart),
+      licenseCache
+    );
+    const previousSnapshot = await this.buildSnapshot(
+      tenants,
+      toMonthEnd(previousMonthStart),
+      licenseCache
+    );
+
+    const trend = await Promise.all(
+      trendMonthStarts.map(async (monthStart) => {
+        const snapshot = await this.buildSnapshot(tenants, toMonthEnd(monthStart), licenseCache);
+        return {
+          month: snapshot.month,
+          mrrTotal: snapshot.mrrTotal,
+          mrrLost: snapshot.mrrLost
+        };
+      })
+    );
+
+    return {
+      selectedMonth: selectedSnapshot.month,
+      previousMonth: previousSnapshot.month,
+      planPricing: PLAN_MONTHLY_PRICING_EUR,
+      assumptions: {
+        formula: "MRR tenant = prezzo mensile (override o piano) x seatsFactor",
+        seatsFactorRule: "seatsFactor = max(1, seats)",
+        billingCycleRule: "Se billingCycle=yearly, il prezzo viene normalizzato in quota mensile (prezzo/12)."
+      },
+      kpis: {
+        mrrTotal: selectedSnapshot.mrrTotal,
+        mrrLost: selectedSnapshot.mrrLost,
+        deltaFromPrevious: money(selectedSnapshot.mrrTotal - previousSnapshot.mrrTotal),
+        tenantsByPlan: selectedSnapshot.tenantsByPlan,
+        mrrByPlan: selectedSnapshot.mrrByPlan
+      },
+      breakdown: selectedSnapshot.breakdown,
+      trend
+    };
+  }
+
+  async revenueReportCsv(input: { month?: string; months: number }) {
+    const report = await this.revenueReport(input);
+
+    const rows: Array<Record<string, unknown>> = [
+      ...report.breakdown.map((row) => ({
+        section: "BREAKDOWN",
+        month: report.selectedMonth,
+        plan: row.plan,
+        basePrice: row.basePrice,
+        activeTenants: row.activeTenants,
+        totalTenants: row.totalTenants,
+        seatsTotal: row.seatsTotal,
+        estimatedRevenue: row.estimatedRevenue,
+        mrrTotal: report.kpis.mrrTotal,
+        mrrLost: report.kpis.mrrLost,
+        deltaFromPrevious: report.kpis.deltaFromPrevious
+      })),
+      ...report.trend.map((row) => ({
+        section: "TREND",
+        month: row.month,
+        plan: "ALL",
+        basePrice: "",
+        activeTenants: "",
+        totalTenants: "",
+        seatsTotal: "",
+        estimatedRevenue: row.mrrTotal,
+        mrrTotal: row.mrrTotal,
+        mrrLost: row.mrrLost,
+        deltaFromPrevious: ""
+      }))
+    ];
+
+    const headers = [
+      "section",
+      "month",
+      "plan",
+      "basePrice",
+      "activeTenants",
+      "totalTenants",
+      "seatsTotal",
+      "estimatedRevenue",
+      "mrrTotal",
+      "mrrLost",
+      "deltaFromPrevious"
+    ];
+
+    const csv = [headers.join(","), ...rows.map((row) => headers.map((h) => csvEscape(row[h])).join(","))].join("\n");
+
+    return {
+      fileName: `platform-revenue-${report.selectedMonth}.csv`,
+      csv
+    };
+  }
+}
