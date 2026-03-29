@@ -1,0 +1,38 @@
+import { RequestHandler, Router } from "express";
+import { FeatureKey } from "../../../application/services/feature-entitlements-service.js";
+import { StoppagesController } from "../controllers/stoppages-controller.js";
+import { requirePermissions } from "../middlewares/permissions.js";
+import { asyncHandler } from "./async-handler.js";
+
+export const stoppagesRoutes = (controller: StoppagesController, requireFeature: (feature: FeatureKey) => RequestHandler) => {
+  const router = Router();
+  router.get("/", requirePermissions("stoppages:read"), asyncHandler(controller.list));
+  router.get("/sla/overview", requirePermissions("stoppages:read"), asyncHandler(controller.slaOverview));
+  router.get("/assignment/suggestions", requirePermissions("stoppages:read"), asyncHandler(controller.assignmentSuggestions));
+  router.get("/calendar", requirePermissions("stoppages:read"), asyncHandler(controller.calendar));
+  router.get("/costs/summary", requirePermissions("stoppages:read"), asyncHandler(controller.costsSummary));
+  router.get("/costs/variance", requirePermissions("stoppages:read"), asyncHandler(controller.costsVariance));
+  router.get("/alerts/list", requirePermissions("stoppages:read"), asyncHandler(controller.alerts));
+  router.get("/sla/escalations", requirePermissions("stoppages:read"), asyncHandler(controller.slaEscalations));
+  router.get("/preventive/due", requirePermissions("stoppages:read"), asyncHandler(controller.preventiveDue));
+  router.post("/bulk", requireFeature("bulk_actions"), requirePermissions("stoppages:write"), asyncHandler(controller.bulkUpdate));
+  router.post("/", requirePermissions("stoppages:write"), asyncHandler(controller.create));
+  router.get("/:id", requirePermissions("stoppages:read"), asyncHandler(controller.getById));
+  router.get("/:id/events", requirePermissions("stoppages:read"), asyncHandler(controller.listEvents));
+  router.get("/:id/parts-orders", requirePermissions("stoppages:read"), asyncHandler(controller.listPartsOrders));
+  router.post("/:id/parts-orders", requirePermissions("stoppages:write"), asyncHandler(controller.addPartsOrder));
+  router.get("/:id/cost-approvals", requirePermissions("stoppages:read"), asyncHandler(controller.listCostApprovals));
+  router.post("/:id/cost-approvals/request", requirePermissions("stoppages:write"), asyncHandler(controller.requestCostApproval));
+  router.post("/:id/cost-approvals/decision", requirePermissions("stoppages:write"), asyncHandler(controller.decideCostApproval));
+  router.get("/:id/closure-checklist", requirePermissions("stoppages:read"), asyncHandler(controller.getClosureChecklist));
+  router.post("/:id/closure-checklist", requirePermissions("stoppages:write"), asyncHandler(controller.saveClosureChecklist));
+  router.post("/:id/final-cost", requirePermissions("stoppages:write"), asyncHandler(controller.setFinalCost));
+  router.patch("/:id", requirePermissions("stoppages:write"), asyncHandler(controller.update));
+  router.patch("/:id/status", requirePermissions("stoppages:write"), asyncHandler(controller.updateStatus));
+  router.post("/:id/workflow/transition", requirePermissions("stoppages:write"), asyncHandler(controller.workflowTransition));
+  router.delete("/:id", requirePermissions("stoppages:delete"), asyncHandler(controller.remove));
+  router.post("/:id/reminders/email", requirePermissions("stoppages:remind"), asyncHandler(controller.sendManualReminder));
+  router.get("/:id/reminders/whatsapp-link", requirePermissions("stoppages:remind"), asyncHandler(controller.whatsappLink));
+  router.get("/:id/reminders/template-preview", requirePermissions("stoppages:read"), asyncHandler(controller.reminderTemplatePreview));
+  return router;
+};
