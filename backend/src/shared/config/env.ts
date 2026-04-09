@@ -22,18 +22,44 @@ const toCsvList = (value?: string) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
+const parseTrustProxy = (value?: string): boolean | number | string => {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  const asNumber = Number(normalized);
+  if (Number.isInteger(asNumber) && asNumber >= 0) return asNumber;
+  return value;
+};
+
 const JWT_SECRET = required("JWT_SECRET");
 const PLATFORM_JWT_SECRET = required("PLATFORM_JWT_SECRET");
+const APP_URL = process.env.APP_URL ?? "http://localhost:5173";
+const BACKEND_PUBLIC_URL = process.env.BACKEND_PUBLIC_URL ?? "http://127.0.0.1:4000";
+
+if (JWT_SECRET.length < 32) {
+  throw new Error("JWT_SECRET must be at least 32 chars");
+}
 
 if (JWT_SECRET === PLATFORM_JWT_SECRET) {
   throw new Error("PLATFORM_JWT_SECRET must be different from JWT_SECRET");
+}
+
+if (PLATFORM_JWT_SECRET.length < 64) {
+  throw new Error("PLATFORM_JWT_SECRET must be at least 64 chars");
+}
+
+if ((process.env.PLATFORM_ADMIN_PASSWORD ?? "").length < 20) {
+  throw new Error("PLATFORM_ADMIN_PASSWORD must be at least 20 chars");
 }
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? "development",
   PORT: toInt(process.env.PORT ?? "4000", "PORT"),
   PLATFORM_PORT: toInt(process.env.PLATFORM_PORT ?? "4100", "PLATFORM_PORT"),
+  SHUTDOWN_GRACE_MS: toInt(process.env.SHUTDOWN_GRACE_MS ?? "15000", "SHUTDOWN_GRACE_MS"),
   PLATFORM_BIND_HOST: process.env.PLATFORM_BIND_HOST ?? "127.0.0.1",
+  TRUST_PROXY: parseTrustProxy(process.env.TRUST_PROXY),
 
   DATABASE_URL: required("DATABASE_URL"),
   JWT_SECRET,
@@ -41,9 +67,21 @@ export const env = {
   PLATFORM_JWT_SECRET,
   PLATFORM_JWT_EXPIRES_IN: process.env.PLATFORM_JWT_EXPIRES_IN ?? "15m",
 
-  APP_URL: process.env.APP_URL ?? "http://localhost:5173",
+  APP_URL,
+  BACKEND_PUBLIC_URL,
   CORS_ORIGIN: process.env.CORS_ORIGIN ?? "http://localhost:5173",
   PLATFORM_CORS_ORIGIN: process.env.PLATFORM_CORS_ORIGIN ?? "http://localhost:5174",
+  OAUTH_CALLBACK_URL: process.env.OAUTH_CALLBACK_URL ?? `${APP_URL}/auth/social-callback`,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI ?? `${BACKEND_PUBLIC_URL}/api/auth/google/callback`,
+  GOOGLE_WORKSPACE_REDIRECT_URI:
+    process.env.GOOGLE_WORKSPACE_REDIRECT_URI ?? `${BACKEND_PUBLIC_URL}/api/calendar/google/callback`,
+  APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID,
+  APPLE_TEAM_ID: process.env.APPLE_TEAM_ID,
+  APPLE_KEY_ID: process.env.APPLE_KEY_ID,
+  APPLE_PRIVATE_KEY: process.env.APPLE_PRIVATE_KEY,
+  APPLE_REDIRECT_URI: process.env.APPLE_REDIRECT_URI ?? `${BACKEND_PUBLIC_URL}/api/auth/apple/callback`,
 
   UPLOAD_DIR: process.env.UPLOAD_DIR ?? "uploads",
 
@@ -60,6 +98,7 @@ export const env = {
 
   PLATFORM_ADMIN_EMAIL: required("PLATFORM_ADMIN_EMAIL"),
   PLATFORM_ADMIN_PASSWORD: required("PLATFORM_ADMIN_PASSWORD"),
+  PLATFORM_ADMIN_OTP: process.env.PLATFORM_ADMIN_OTP,
   PLATFORM_ALLOWED_IPS_CSV: process.env.PLATFORM_ALLOWED_IPS ?? "",
   PLATFORM_ALERT_EMAILS: toCsvList(process.env.PLATFORM_ALERT_EMAILS),
   PLATFORM_LOGIN_MAX_ATTEMPTS: toInt(process.env.PLATFORM_LOGIN_MAX_ATTEMPTS ?? "5", "PLATFORM_LOGIN_MAX_ATTEMPTS"),

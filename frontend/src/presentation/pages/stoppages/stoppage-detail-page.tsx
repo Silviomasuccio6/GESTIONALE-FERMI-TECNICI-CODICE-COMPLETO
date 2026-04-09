@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { useAsync } from "../../hooks/use-async";
 import { stoppagesUseCases } from "../../../application/usecases/stoppages-usecases";
 import { snackbar } from "../../../application/stores/snackbar-store";
+import { AuthenticatedPhoto } from "../../components/common/authenticated-photo";
 
 export const StoppageDetailPage = () => {
   const { id = "" } = useParams();
@@ -329,10 +330,11 @@ export const StoppageDetailPage = () => {
         <CardContent>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {(data.photos || []).map((p: any) => (
-              <img
+              <AuthenticatedPhoto
                 key={p.id}
+                photoId={p.id}
+                kind="stoppage"
                 className="h-40 w-full rounded-md border object-cover"
-                src={`${import.meta.env.VITE_API_BASE_URL?.replace("/api", "")}/${p.filePath}`}
                 alt="foto fermo"
               />
             ))}

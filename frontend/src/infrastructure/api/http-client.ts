@@ -4,22 +4,92 @@ import { useAuthStore } from "../../application/stores/auth-store";
 import { ApiRepository } from "../../domain/repositories/api-repository";
 import { tokenStorage } from "../auth/token-storage";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api",
-  timeout: 15000
+  baseURL: API_BASE_URL,
+  timeout: 15000,
+  withCredentials: true
 });
 let lastToastAt = 0;
 const TOAST_COOLDOWN_MS = 5000;
 const AUTH_ROUTES = ["/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/reset-password", "/auth/accept-invite", "/auth/refresh"];
+let refreshPromise: Promise<{ token?: string; user?: unknown; csrfToken?: string } | null> | null = null;
 
-api.interceptors.request.use((config) => {
+const getCookieValue = (name: string) => {
+  const raw = document.cookie
+    .split(";")
+    .map((x) => x.trim())
+    .find((x) => x.startsWith(`${name}=`));
+  if (!raw) return undefined;
+  return decodeURIComponent(raw.slice(name.length + 1));
+};
+
+const isStateChangingMethod = (method?: string) => {
+  const normalized = String(method ?? "get").toUpperCase();
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(normalized);
+};
+
+const readCsrfToken = () => getCookieValue("fermi_csrf") ?? tokenStorage.getCsrf();
+
+const tryRefreshSession = async () => {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const remember = tokenStorage.shouldRemember();
+      const refreshToken = tokenStorage.getRefresh();
+      const refreshRes = await axios.post(
+        `${API_BASE_URL}/auth/refresh`,
+        refreshToken ? { refreshToken } : {},
+        { timeout: 15000, withCredentials: true }
+      );
+
+      const nextToken = refreshRes.data?.token as string | undefined;
+      const nextUser = refreshRes.data?.user;
+      const csrfToken = typeof refreshRes.data?.csrfToken === "string" ? refreshRes.data.csrfToken : undefined;
+
+      if (nextToken) {
+        tokenStorage.set(nextToken, remember);
+        if (nextUser) useAuthStore.getState().setSession(nextToken, nextUser as any, remember);
+        else useAuthStore.setState({ token: nextToken });
+      }
+
+      if (csrfToken) tokenStorage.setCsrf(csrfToken, remember);
+      return { token: nextToken, user: nextUser, csrfToken };
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+};
+
+api.interceptors.request.use(async (config) => {
   const token = tokenStorage.get();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  if (isStateChangingMethod(config.method)) {
+    let csrfToken = readCsrfToken();
+    if (!csrfToken) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed?.token) config.headers.Authorization = `Bearer ${refreshed.token}`;
+      csrfToken = refreshed?.csrfToken ?? readCsrfToken();
+    }
+    if (csrfToken) config.headers["X-CSRF-Token"] = csrfToken;
+  }
+
   return config;
 });
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const csrfToken = typeof res.data?.csrfToken === "string" ? res.data.csrfToken : undefined;
+    if (csrfToken) tokenStorage.setCsrf(csrfToken, tokenStorage.shouldRemember());
+    return res;
+  },
   async (error) => {
     const originalRequest = error.config ?? {};
     const status = error.response?.status as number | undefined;
@@ -40,38 +110,48 @@ api.interceptors.response.use(
 
     const planLimitMessage =
       apiErrorCode === "PLAN_LIMIT"
-        ? `${apiMessage ?? "Funzionalità non inclusa nel tuo piano."}${apiDetails?.requiredPlan ? ` (Piano richiesto: ${String(apiDetails.requiredPlan)})` : ""}`
+        ? `Feature premium bloccata.${apiDetails?.requiredPlan ? ` Richiede piano ${String(apiDetails.requiredPlan)}.` : ""} Apri "Upgrade piano" per abilitarla.`
         : null;
 
     const isNetwork = error.code === "ERR_NETWORK";
+    const isTimeout = error.code === "ECONNABORTED";
 
     if (status === 401 && !originalRequest._retry && !isAuthRoute) {
-      const refreshToken = tokenStorage.getRefresh();
-      if (refreshToken) {
-        try {
-          originalRequest._retry = true;
-          const refreshRes = await axios.post(
-            `${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api"}/auth/refresh`,
-            { refreshToken },
-            { timeout: 15000 }
-          );
-          const nextToken = refreshRes.data?.token as string | undefined;
-          const nextRefresh = refreshRes.data?.refreshToken as string | undefined;
-          const nextUser = refreshRes.data?.user;
-
-          if (nextToken && nextRefresh) {
-            const remember = tokenStorage.shouldRemember();
-            tokenStorage.setTokens(nextToken, nextRefresh, remember);
-            if (nextUser) useAuthStore.getState().setSession(nextToken, nextUser, remember, nextRefresh);
-            else useAuthStore.setState({ token: nextToken });
-            originalRequest.headers = { ...(originalRequest.headers ?? {}), Authorization: `Bearer ${nextToken}` };
-            return api.request(originalRequest);
+      try {
+        originalRequest._retry = true;
+        const refreshed = await tryRefreshSession();
+        if (refreshed?.token) {
+          originalRequest.headers = { ...(originalRequest.headers ?? {}), Authorization: `Bearer ${refreshed.token}` };
+          if (isStateChangingMethod(originalRequest.method)) {
+            const csrfToken = refreshed.csrfToken ?? readCsrfToken();
+            if (csrfToken) originalRequest.headers["X-CSRF-Token"] = csrfToken;
           }
-        } catch {
-          tokenStorage.clear();
-          useAuthStore.getState().logout();
-          if (window.location.pathname !== "/login") window.location.href = "/login";
+          return api.request(originalRequest);
         }
+      } catch {
+        tokenStorage.clear();
+        useAuthStore.getState().logout();
+        if (window.location.pathname !== "/login") window.location.href = "/login";
+      }
+    }
+
+    if (
+      status === 403 &&
+      apiErrorCode === "CSRF_INVALID" &&
+      !originalRequest._csrfRetry &&
+      !isAuthRoute &&
+      isStateChangingMethod(originalRequest.method)
+    ) {
+      originalRequest._csrfRetry = true;
+      const refreshed = await tryRefreshSession();
+      const csrfToken = refreshed?.csrfToken ?? readCsrfToken();
+      if (csrfToken) {
+        originalRequest.headers = {
+          ...(originalRequest.headers ?? {}),
+          "X-CSRF-Token": csrfToken,
+          ...(refreshed?.token ? { Authorization: `Bearer ${refreshed.token}` } : {})
+        };
+        return api.request(originalRequest);
       }
     }
 
@@ -81,6 +161,7 @@ api.interceptors.response.use(
       apiMessage ||
       (status === 402 ? "Licenza scaduta. Rinnova per continuare." : null) ||
       (status === 403 ? "Accesso non consentito." : null) ||
+      (isTimeout ? "Operazione in timeout. Riprova tra pochi secondi." : null) ||
       (isNetwork ? "Backend non raggiungibile. Verifica API e connessione." : "Errore di rete");
 
     const now = Date.now();
@@ -102,9 +183,16 @@ export const httpClient: ApiRepository = {
     const res = await api.get<T>(url, { params });
     return res.data;
   },
-  async post<T>(url: string, body?: unknown, headers?: Record<string, string>) {
-    const res = await api.post<T>(url, body, { headers });
-    if (shouldShowSuccess(url)) snackbar.success("Operazione completata");
+  async post<T>(
+    url: string,
+    body?: unknown,
+    options?: { headers?: Record<string, string>; timeoutMs?: number; suppressSuccessToast?: boolean }
+  ) {
+    const res = await api.post<T>(url, body, {
+      headers: options?.headers,
+      ...(typeof options?.timeoutMs === "number" ? { timeout: options.timeoutMs } : {})
+    });
+    if (shouldShowSuccess(url) && !options?.suppressSuccessToast) snackbar.success("Operazione completata");
     return res.data;
   },
   async put<T>(url: string, body?: unknown) {

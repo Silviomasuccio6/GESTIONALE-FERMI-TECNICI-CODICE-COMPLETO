@@ -10,6 +10,13 @@ export const stoppagesRoutes = (controller: StoppagesController, requireFeature:
   router.get("/sla/overview", requirePermissions("stoppages:read"), asyncHandler(controller.slaOverview));
   router.get("/assignment/suggestions", requirePermissions("stoppages:read"), asyncHandler(controller.assignmentSuggestions));
   router.get("/calendar", requirePermissions("stoppages:read"), asyncHandler(controller.calendar));
+  router.get("/calendar/apple/feed", requirePermissions("stoppages:read"), asyncHandler(controller.appleCalendarFeedInfo));
+  router.post("/calendar/apple/import", requirePermissions("stoppages:write"), asyncHandler(controller.appleCalendarImport));
+  router.post("/calendar/google/sync", requirePermissions("stoppages:read"), asyncHandler(controller.googleCalendarSync));
+  router.get("/calendar/custom", requirePermissions("stoppages:read"), asyncHandler(controller.listCustomCalendarEvents));
+  router.post("/calendar/custom", requirePermissions("stoppages:write"), asyncHandler(controller.createCustomCalendarEvent));
+  router.patch("/calendar/custom/:eventId", requirePermissions("stoppages:write"), asyncHandler(controller.updateCustomCalendarEvent));
+  router.delete("/calendar/custom/:eventId", requirePermissions("stoppages:write"), asyncHandler(controller.deleteCustomCalendarEvent));
   router.get("/costs/summary", requirePermissions("stoppages:read"), asyncHandler(controller.costsSummary));
   router.get("/costs/variance", requirePermissions("stoppages:read"), asyncHandler(controller.costsVariance));
   router.get("/alerts/list", requirePermissions("stoppages:read"), asyncHandler(controller.alerts));

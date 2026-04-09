@@ -10,6 +10,7 @@ export const statsRoutes = (controller: StatsController, requireFeature: (featur
   router.get("/dashboard", requireFeature("reports_basic"), requirePermissions("stats:read"), asyncHandler(controller.dashboard));
   router.get("/analytics", requireFeature("reports_advanced"), requirePermissions("stats:read"), asyncHandler(controller.analytics));
   router.get("/analytics/export.csv", requireFeature("export_csv"), requirePermissions("stats:read"), asyncHandler(controller.analyticsCsv));
+  router.get("/analytics/export.xlsx", requireFeature("export_csv"), requirePermissions("stats:read"), asyncHandler(controller.analyticsXlsx));
   router.get("/workshops/health", requireFeature("reports_basic"), requirePermissions("stats:read"), asyncHandler(controller.workshopsHealth));
   router.get("/workshops/capacity", requireFeature("reports_advanced"), requirePermissions("stats:read"), asyncHandler(controller.workshopsCapacity));
   router.get("/team/performance", requireFeature("reports_advanced"), requirePermissions("stats:read"), asyncHandler(controller.teamPerformance));

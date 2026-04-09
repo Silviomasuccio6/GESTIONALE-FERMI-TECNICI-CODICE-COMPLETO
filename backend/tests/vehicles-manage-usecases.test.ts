@@ -4,6 +4,7 @@ import { ManageVehiclesUseCases } from "../src/application/usecases/vehicles/man
 
 const buildRepo = (overrides?: Partial<any>) => ({
   list: async () => ({ data: [], total: 0 }),
+  findById: async (_tenantId: string, id: string) => ({ id, plate: "AB123CD" }),
   findByPlate: async () => null,
   create: async (_tenantId: string, input: Record<string, unknown>) => ({ id: "veh-1", ...input }),
   update: async (_tenantId: string, _id: string, input: Record<string, unknown>) => ({ id: "veh-1", ...input }),

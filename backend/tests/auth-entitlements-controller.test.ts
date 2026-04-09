@@ -28,6 +28,7 @@ test("auth controller exposes /me/entitlements payload", async () => {
       })
     } as any,
     {} as any,
+    {} as any,
     {} as any
   );
 

@@ -5,7 +5,7 @@ import { tokenStorage } from "../../infrastructure/auth/token-storage";
 type AuthState = {
   token: string | null;
   user: User | null;
-  setSession: (token: string, user: User, remember?: boolean, refreshToken?: string) => void;
+  setSession: (token: string, user: User, remember?: boolean) => void;
   setUser: (user: User | null) => void;
   logout: () => void;
 };
@@ -13,9 +13,8 @@ type AuthState = {
 export const useAuthStore = create<AuthState>((set) => ({
   token: tokenStorage.get(),
   user: null,
-  setSession: (token, user, remember = true, refreshToken) => {
-    if (refreshToken) tokenStorage.setTokens(token, refreshToken, remember);
-    else tokenStorage.set(token, remember);
+  setSession: (token, user, remember = true) => {
+    tokenStorage.set(token, remember);
     set({ token, user });
   },
   setUser: (user) => set({ user }),

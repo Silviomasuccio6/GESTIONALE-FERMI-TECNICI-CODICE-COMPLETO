@@ -1,7 +1,6 @@
 import { env } from "../../shared/config/env.js";
 import { AppError } from "../../shared/errors/app-error.js";
-
-type Entry = { failures: number; firstFailureAt: number; lockedUntil?: number };
+import { LoginAttemptStoreService } from "./login-attempt-store-service.js";
 
 export type LoginFailureResult = {
   locked: boolean;
@@ -9,48 +8,34 @@ export type LoginFailureResult = {
   blockedUntil?: string;
 };
 
+const PLATFORM_LOGIN_SCOPE = "platform-login";
+
 export class PlatformLoginGuardService {
-  private readonly state = new Map<string, Entry>();
+  constructor(private readonly attemptsStore = new LoginAttemptStoreService()) {}
 
   private makeKey(ip: string, email: string) {
     return `${ip.toLowerCase()}::${email.toLowerCase()}`;
   }
 
-  assertAllowed(ip: string, email: string): void {
+  async assertAllowed(ip: string, email: string): Promise<void> {
     const key = this.makeKey(ip, email);
-    const current = this.state.get(key);
-    if (!current?.lockedUntil) return;
-    if (current.lockedUntil <= Date.now()) {
-      this.state.delete(key);
-      return;
-    }
-    throw new AppError("Accesso platform temporaneamente bloccato", 429, "PLATFORM_LOGIN_LOCKED");
+    const block = await this.attemptsStore.assertAllowed(PLATFORM_LOGIN_SCOPE, key);
+    if (!block.blockedUntil) return;
+
+    throw new AppError("Accesso platform temporaneamente bloccato", 429, "PLATFORM_LOGIN_LOCKED", {
+      blockedUntil: block.blockedUntil
+    });
   }
 
-  registerFailure(ip: string, email: string): LoginFailureResult {
-    const now = Date.now();
-    const key = this.makeKey(ip, email);
-    const current = this.state.get(key);
-
-    if (!current || now - current.firstFailureAt > env.PLATFORM_LOGIN_WINDOW_MS) {
-      this.state.set(key, { failures: 1, firstFailureAt: now });
-      return { locked: false, failures: 1 };
-    }
-
-    const failures = current.failures + 1;
-    const shouldLock = failures >= env.PLATFORM_LOGIN_MAX_ATTEMPTS;
-    const lockedUntil = shouldLock ? now + env.PLATFORM_LOGIN_LOCK_MS : current.lockedUntil;
-
-    this.state.set(key, { failures, firstFailureAt: current.firstFailureAt, lockedUntil });
-
-    return {
-      locked: shouldLock,
-      failures,
-      blockedUntil: lockedUntil ? new Date(lockedUntil).toISOString() : undefined
-    };
+  async registerFailure(ip: string, email: string): Promise<LoginFailureResult> {
+    return this.attemptsStore.registerAttempt(PLATFORM_LOGIN_SCOPE, this.makeKey(ip, email), {
+      maxAttempts: env.PLATFORM_LOGIN_MAX_ATTEMPTS,
+      windowMs: env.PLATFORM_LOGIN_WINDOW_MS,
+      lockMs: env.PLATFORM_LOGIN_LOCK_MS
+    });
   }
 
-  registerSuccess(ip: string, email: string): void {
-    this.state.delete(this.makeKey(ip, email));
+  async registerSuccess(ip: string, email: string): Promise<void> {
+    await this.attemptsStore.clear(PLATFORM_LOGIN_SCOPE, this.makeKey(ip, email));
   }
 }

@@ -1,4 +1,4 @@
-import cron from "node-cron";
+import cron, { ScheduledTask } from "node-cron";
 import { prisma } from "../database/prisma/client.js";
 import { EmailQueueService } from "../email/email-queue-service.js";
 import { logger } from "../logging/logger.js";
@@ -51,8 +51,8 @@ const buildSimplePdf = (title: string, body: string) => {
   return Buffer.from(header + objects.join("") + xref + trailer, "utf8");
 };
 
-export const startReportsCron = (emailQueue: EmailQueueService) => {
-  cron.schedule("* * * * *", async () => {
+export const startReportsCron = (emailQueue: EmailQueueService): ScheduledTask => {
+  return cron.schedule("* * * * *", async () => {
     const now = new Date();
     try {
       const settingsRows = await prisma.auditLog.findMany({

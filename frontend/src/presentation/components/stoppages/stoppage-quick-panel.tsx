@@ -17,6 +17,10 @@ type Props = {
   mode: "detail" | "edit" | "create";
   onClose: () => void;
   onSaved: () => void;
+  initialOpenedAt?: string | null;
+  initialClosedAt?: string | null;
+  initialColor?: string | null;
+  onSavedRecord?: (record: any, meta?: { color?: string | null }) => void;
 };
 
 const priorityOptions = [
@@ -33,8 +37,40 @@ const toList = (value: any): any[] => {
 };
 
 const nowIso = () => new Date().toISOString();
+const toLocalDateTimeInput = (iso?: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => `${n}`.padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const fromLocalDateTimeInput = (value: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+const eventColorOptions = [
+  "#2563eb",
+  "#0ea5e9",
+  "#14b8a6",
+  "#22c55e",
+  "#eab308",
+  "#f97316",
+  "#ef4444",
+  "#a855f7"
+];
 
-export const StoppageQuickPanel = ({ open, stoppageId, mode, onClose, onSaved }: Props) => {
+export const StoppageQuickPanel = ({
+  open,
+  stoppageId,
+  mode,
+  onClose,
+  onSaved,
+  initialOpenedAt,
+  initialClosedAt,
+  initialColor,
+  onSavedRecord
+}: Props) => {
   const [tab, setTab] = useState<"detail" | "edit">(mode === "create" ? "edit" : (mode as "detail" | "edit"));
   const [detail, setDetail] = useState<any | null>(null);
   const [sites, setSites] = useState<any[]>([]);
@@ -66,8 +102,24 @@ export const StoppageQuickPanel = ({ open, stoppageId, mode, onClose, onSaved }:
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [openedAtInput, setOpenedAtInput] = useState("");
+  const [closedAtInput, setClosedAtInput] = useState("");
+  const [selectedColor, setSelectedColor] = useState(initialColor ?? eventColorOptions[0]);
 
   useEffect(() => setTab(mode === "create" ? "edit" : (mode as "detail" | "edit")), [mode, stoppageId]);
+  useEffect(() => {
+    setSelectedColor(initialColor ?? eventColorOptions[0]);
+  }, [initialColor, open]);
+  useEffect(() => {
+    if (!openedAtInput) return;
+    const opened = new Date(openedAtInput);
+    if (Number.isNaN(opened.getTime())) return;
+    const closed = closedAtInput ? new Date(closedAtInput) : null;
+    if (!closed || Number.isNaN(closed.getTime()) || closed.getTime() <= opened.getTime()) {
+      const nextClosed = new Date(opened.getTime() + 60 * 60000);
+      setClosedAtInput(toLocalDateTimeInput(nextClosed.toISOString()));
+    }
+  }, [openedAtInput, closedAtInput]);
 
   useEffect(() => {
     if (!open) return;
@@ -117,6 +169,8 @@ export const StoppageQuickPanel = ({ open, stoppageId, mode, onClose, onSaved }:
         setSelectedSiteId(nextSiteId);
         setSelectedWorkshopId(nextWorkshopId);
         setSelectedVehicleId(nextVehicleId);
+        setOpenedAtInput(toLocalDateTimeInput(nextDetail?.openedAt ?? initialOpenedAt ?? nowIso()));
+        setClosedAtInput(toLocalDateTimeInput(nextDetail?.closedAt ?? initialClosedAt ?? null));
 
         if (results.some((r) => r.status === "rejected")) {
           setError("Alcuni dati non sono disponibili. Puoi comunque continuare.");
@@ -127,7 +181,7 @@ export const StoppageQuickPanel = ({ open, stoppageId, mode, onClose, onSaved }:
     return () => {
       mounted = false;
     };
-  }, [open, stoppageId, mode]);
+  }, [open, stoppageId, mode, initialOpenedAt, initialClosedAt]);
 
   const filteredVehicles = useMemo(() => {
     if (!selectedSiteId) return vehicles;
@@ -265,6 +319,19 @@ export const StoppageQuickPanel = ({ open, stoppageId, mode, onClose, onSaved }:
     }
 
     try {
+      const openedAt = fromLocalDateTimeInput(openedAtInput);
+      const closedAt = fromLocalDateTimeInput(closedAtInput);
+      if (!openedAt) {
+        setSaving(false);
+        setError("Data/ora inizio non valida.");
+        return;
+      }
+      if (closedAt && new Date(closedAt).getTime() <= new Date(openedAt).getTime()) {
+        setSaving(false);
+        setError("La data/ora fine deve essere successiva all'inizio.");
+        return;
+      }
+
       const payload = {
         siteId,
         vehicleId,
@@ -275,13 +342,16 @@ export const StoppageQuickPanel = ({ open, stoppageId, mode, onClose, onSaved }:
         priority: String(form.get("priority") || "") || "MEDIUM",
         assignedToUserId: String(form.get("assignedToUserId") || "") || null,
         reminderAfterDays: Number(form.get("reminderAfterDays") || 0) || null,
-        openedAt: detail?.openedAt ?? nowIso()
+        openedAt,
+        closedAt
       };
 
-      if (mode === "create") await stoppagesUseCases.create(payload);
-      else if (stoppageId) await stoppagesUseCases.update(stoppageId, payload);
+      let result: any = null;
+      if (mode === "create") result = await stoppagesUseCases.create(payload);
+      else if (stoppageId) result = await stoppagesUseCases.update(stoppageId, payload);
 
       onSaved();
+      if (result && onSavedRecord) onSavedRecord(result, { color: selectedColor });
       onClose();
     } catch (e) {
       setError((e as Error).message);
@@ -491,6 +561,30 @@ export const StoppageQuickPanel = ({ open, stoppageId, mode, onClose, onSaved }:
               <div className="grid gap-1.5">
                 <Label>Reminder dopo giorni</Label>
                 <Input type="number" min={1} name="reminderAfterDays" defaultValue={detail?.reminderAfterDays || ""} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="openedAt">Da (data/ora)</Label>
+                <Input id="openedAt" type="datetime-local" step={900} value={openedAtInput} onChange={(e) => setOpenedAtInput(e.target.value)} required />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="closedAt">A (data/ora)</Label>
+                <Input id="closedAt" type="datetime-local" step={900} value={closedAtInput} onChange={(e) => setClosedAtInput(e.target.value)} />
+                <p className="text-xs text-muted-foreground">Durata predefinita: 1 ora (modificabile).</p>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Colore promemoria</Label>
+                <div className="flex flex-wrap gap-2">
+                  {eventColorOptions.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={`h-7 w-7 rounded-full border-2 ${selectedColor === color ? "border-foreground" : "border-transparent"}`}
+                      style={{ backgroundColor: color }}
+                      aria-label={`Scegli colore ${color}`}
+                      onClick={() => setSelectedColor(color)}
+                    />
+                  ))}
+                </div>
               </div>
               <div className="grid gap-1.5">
                 <Label>Motivo</Label>

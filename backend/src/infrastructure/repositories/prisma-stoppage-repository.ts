@@ -3,6 +3,7 @@ import { StoppageRepository } from "../../domain/repositories/stoppage-repositor
 import { prisma } from "../database/prisma/client.js";
 
 const sortableFields = new Set(["openedAt", "createdAt", "updatedAt", "status", "priority", "closedAt"]);
+const openLifecycleStatuses: StoppageStatus[] = ["OPEN", "IN_PROGRESS", "WAITING_PARTS", "SOLICITED"];
 
 export class PrismaStoppageRepository implements StoppageRepository {
   async list(
@@ -18,10 +19,17 @@ export class PrismaStoppageRepository implements StoppageRepository {
       sortDir?: "asc" | "desc";
     }
   ) {
+    const statusWhere =
+      params.status === "OPEN_ACTIVE"
+        ? { status: { in: openLifecycleStatuses } }
+        : params.status
+          ? { status: params.status as StoppageStatus }
+          : {};
+
     const where = {
       tenantId,
       deletedAt: null,
-      ...(params.status ? { status: params.status as StoppageStatus } : {}),
+      ...statusWhere,
       ...(params.siteId ? { siteId: params.siteId } : {}),
       ...(params.workshopId ? { workshopId: params.workshopId } : {}),
       ...(params.search

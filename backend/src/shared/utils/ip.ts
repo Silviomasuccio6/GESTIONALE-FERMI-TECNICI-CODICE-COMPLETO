@@ -1,21 +1,20 @@
 import { Request } from "express";
 
-const normalizeIp = (raw: string) => {
+const normalizeIp = (raw?: string | null) => {
   if (!raw) return "unknown";
   const value = raw.trim();
+  if (!value) return "unknown";
   if (value.startsWith("::ffff:")) return value.slice(7);
   return value;
 };
 
 export const getClientIp = (req: Request) => {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.length > 0) {
-    return normalizeIp(forwarded.split(",")[0] ?? "");
+  const candidates = [req.ip, ...(Array.isArray(req.ips) ? req.ips : []), req.socket.remoteAddress];
+  for (const candidate of candidates) {
+    const normalized = normalizeIp(candidate);
+    if (normalized !== "unknown") return normalized;
   }
-  if (Array.isArray(forwarded) && forwarded[0]) {
-    return normalizeIp(forwarded[0]);
-  }
-  return normalizeIp(req.ip || req.socket.remoteAddress || "");
+  return "unknown";
 };
 
 export const toIpAllowlist = (ipsCsv: string) => {

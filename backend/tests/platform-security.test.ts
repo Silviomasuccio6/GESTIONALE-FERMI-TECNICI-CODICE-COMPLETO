@@ -168,9 +168,34 @@ test("quick action deactivate tenant updates state and writes audit", async () =
 
   assert.equal(result.updated, true);
   assert.equal(repo.isActive, false);
-  assert.equal(repo.audits.length, 1);
+  assert.equal(repo.license.status, "SUSPENDED");
+  assert.equal(repo.audits.length, 2);
   assert.equal(repo.audits[0]?.action, "PLATFORM_TENANT_STATUS_CHANGED");
-  assert.equal(sentAlerts.length, 1);
+  assert.equal(repo.audits[1]?.action, "PLATFORM_LICENSE_QUICK_ACTION");
+  assert.equal(sentAlerts.length, 2);
+});
+
+test("quick action trial sets TRIAL status with 14-day expiry", async () => {
+  const repo = new FakePlatformRepository();
+  const service = new PlatformAdminService(
+    repo,
+    { notify: async () => {} } as any,
+    new PlatformLoginGuardService()
+  );
+
+  const result = await service.executeQuickAction({
+    tenantId: "cktnant555555555555555555",
+    actorUserId: "platform-admin",
+    sourceIp: "127.0.0.1",
+    action: "TRIAL_14_DAYS"
+  });
+
+  assert.equal(result.updated, true);
+  assert.equal(repo.license.status, "TRIAL");
+  assert.ok(repo.license.expiresAt);
+  const expiryTs = new Date(repo.license.expiresAt!).getTime();
+  assert.ok(expiryTs > Date.now());
+  assert.ok(repo.audits.some((row) => row.action === "PLATFORM_LICENSE_QUICK_ACTION"));
 });
 
 test("updateLicense updates tenant plan without losing billing fields", async () => {

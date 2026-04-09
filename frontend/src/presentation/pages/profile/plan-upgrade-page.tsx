@@ -1,112 +1,251 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight, Check, Crown, Lock, Sparkles } from "lucide-react";
 import {
   FeatureKey,
   getFeatureListForPlan,
   PLAN_MONTHLY_PRICING_EUR,
-  SAAS_PLANS
+  SAAS_PLANS,
+  SaasPlan
 } from "../../../domain/constants/entitlements";
+import { FEATURE_LABELS } from "../../../domain/constants/feature-labels";
+import { cn } from "../../../lib/utils";
 import { useEntitlements } from "../../hooks/use-entitlements";
-import { PageHeader } from "../../components/layout/page-header";
-import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 
-const featureLabels: Record<FeatureKey, string> = {
-  dashboard_overview: "Dashboard overview",
-  tenant_basic_view: "Vista tenant base",
-  users_basic: "Gestione utenti base",
-  vehicles_basic: "Gestione veicoli base",
-  fermi_basic: "Gestione fermi base",
-  reports_basic: "Report base",
-  alerts_basic: "Alert base",
-  export_pdf_basic: "Export PDF",
-  reports_advanced: "Report avanzati",
-  export_csv: "Export CSV",
-  advanced_filters: "Filtri avanzati",
-  scheduled_reports: "Report schedulati",
-  bulk_actions: "Azioni massive",
-  alerts_advanced: "Alert avanzati",
-  integrations_basic: "Integrazioni base",
-  audit_standard: "Audit standard",
-  api_access: "Accesso API",
-  sso: "Single Sign-On (SSO)",
-  custom_roles: "Ruoli custom",
-  audit_advanced: "Audit avanzato",
-  automations_advanced: "Automazioni avanzate",
-  webhooks: "Webhook",
-  multi_workspace_controls: "Controlli multi-workspace",
-  priority_support_flags: "Supporto prioritario",
-  security_insights: "Security insights",
-  white_label_flags: "White-label"
-};
+type BillingCycle = "monthly" | "yearly";
 
 const orderedFeatures = getFeatureListForPlan("ENTERPRISE");
+const annualDiscountRate = 0.18;
+
+const planRank: Record<SaasPlan, number> = {
+  STARTER: 0,
+  PRO: 1,
+  ENTERPRISE: 2
+};
+
+const formatPrice = (value: number) =>
+  new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0
+  }).format(value);
+
+const getPlanAccent = (plan: SaasPlan) => {
+  if (plan === "STARTER") {
+    return {
+      chip: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+      gradient: "from-slate-400 via-slate-500 to-slate-600"
+    };
+  }
+
+  if (plan === "PRO") {
+    return {
+      chip: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200",
+      gradient: "from-indigo-500 via-violet-500 to-fuchsia-500"
+    };
+  }
+
+  return {
+    chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+    gradient: "from-emerald-500 via-cyan-500 to-indigo-500"
+  };
+};
+
+const getPlanHighlights = (plan: SaasPlan) => {
+  if (plan === "STARTER") {
+    return ["Gestione base fermi", "Anagrafiche complete", "Dashboard operativa standard"];
+  }
+
+  if (plan === "PRO") {
+    return ["Trend avanzati", "Export CSV e filtri avanzati", "Reminder e workflow potenziati"];
+  }
+
+  return ["Automazioni avanzate", "Controlli multi-workspace", "Security insights e supporto prioritario"];
+};
 
 export const PlanUpgradePage = () => {
   const { plan, loading } = useEntitlements();
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const currentPlan = loading ? null : plan;
+
+  const planCards = useMemo(
+    () =>
+      SAAS_PLANS.map((entry) => {
+        const monthlyPrice = PLAN_MONTHLY_PRICING_EUR[entry];
+        const yearlyPrice = Math.round(monthlyPrice * 12 * (1 - annualDiscountRate));
+        const isCurrent = entry === currentPlan;
+        const isUpgrade = currentPlan ? planRank[entry] > planRank[currentPlan] : false;
+
+        return {
+          entry,
+          features: getFeatureListForPlan(entry),
+          monthlyPrice,
+          yearlyPrice,
+          isCurrent,
+          isUpgrade,
+          accent: getPlanAccent(entry),
+          highlights: getPlanHighlights(entry)
+        };
+      }),
+    [currentPlan]
+  );
 
   return (
     <section className="space-y-5">
-      <PageHeader
-        title="Upgrade Piano"
-        subtitle="Confronta i piani e scegli il livello migliore per il tuo tenant."
-        actions={
-          <>
-            {currentPlan ? (
-              <Badge variant="secondary" className="uppercase tracking-[0.08em]">
-                Piano attivo: {currentPlan}
-              </Badge>
-            ) : null}
-            <Link
-              to="/profilo"
-              className="inline-flex h-8 items-center justify-center rounded-lg border border-input bg-background px-3 text-xs font-semibold hover:bg-muted/60"
-            >
-              Vai a Profilo
-            </Link>
-          </>
-        }
-      />
+      <Card
+        className="saas-hero-header g-card-lift overflow-hidden"
+        style={{ animation: "gCardIn .52s cubic-bezier(0.34,1.2,0.64,1) both" }}
+      >
+        <CardContent className="py-8">
+          <div className="mx-auto flex w-full max-w-3xl flex-col items-center text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-100/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200">
+              <Sparkles className="h-3.5 w-3.5" />
+              Premium growth
+            </div>
 
-      <Card>
-        <CardContent className="py-6">
-          <p className="text-sm text-muted-foreground">
-            Prezzi mensili: STARTER {PLAN_MONTHLY_PRICING_EUR.STARTER} EUR, PRO {PLAN_MONTHLY_PRICING_EUR.PRO} EUR, ENTERPRISE {PLAN_MONTHLY_PRICING_EUR.ENTERPRISE} EUR.
-          </p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-foreground md:text-[2rem]">
+              Sblocca analytics, automazioni e controllo enterprise
+            </h2>
+
+            <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
+              Upgrade immediato, nessun downtime e operativita continua. Scegli il ciclo di fatturazione e confronta i piani qui sotto.
+            </p>
+
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center rounded-full border border-border/80 bg-card/80 px-3 py-1">
+                Sconto annuale {Math.round(annualDiscountRate * 100)}%
+              </span>
+              {currentPlan ? (
+                <span className="inline-flex items-center rounded-full border border-emerald-300/70 bg-emerald-50 px-3 py-1 font-semibold text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200">
+                  Piano attivo: {currentPlan}
+                </span>
+              ) : null}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
+      <div
+        className="flex justify-center"
+        style={{ animation: "gCardIn .52s cubic-bezier(0.34,1.2,0.64,1) .1s both" }}
+      >
+        <div className="flex items-center gap-1 rounded-full border border-indigo-200/80 bg-white/90 p-1 shadow-[0_12px_28px_-22px_rgba(79,70,229,0.7)] dark:border-indigo-500/30 dark:bg-slate-900/60">
+          <Button
+            type="button"
+            size="sm"
+            variant={billingCycle === "monthly" ? "default" : "ghost"}
+            className={cn(
+              "h-8 rounded-full px-5 text-xs font-semibold uppercase tracking-[0.08em]",
+              billingCycle === "monthly" && "bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_12px_24px_-16px_rgba(79,70,229,0.75)]"
+            )}
+            onClick={() => setBillingCycle("monthly")}
+          >
+            Mensile
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={billingCycle === "yearly" ? "default" : "ghost"}
+            className={cn(
+              "h-8 rounded-full px-5 text-xs font-semibold uppercase tracking-[0.08em]",
+              billingCycle === "yearly" && "bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_12px_24px_-16px_rgba(79,70,229,0.75)]"
+            )}
+            onClick={() => setBillingCycle("yearly")}
+          >
+            Annuale
+          </Button>
+        </div>
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-3">
-        {SAAS_PLANS.map((entry) => {
-          const features = getFeatureListForPlan(entry);
-          const isCurrent = entry === currentPlan;
+        {planCards.map(({ entry, features, monthlyPrice, yearlyPrice, isCurrent, isUpgrade, accent, highlights }, index) => {
+          const priceValue = billingCycle === "monthly" ? monthlyPrice : yearlyPrice;
+          const priceSuffix = billingCycle === "monthly" ? "/mese" : "/anno";
+          const buttonLabel = isCurrent
+            ? "Piano attivo"
+            : entry === "ENTERPRISE"
+              ? "Passa a Piano Enterprise"
+              : `Passa a ${entry}`;
+
           return (
-            <Card key={entry} className={isCurrent ? "border-primary/60 shadow-lg shadow-primary/10" : ""}>
-              <CardHeader className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-base">{entry}</CardTitle>
-                  {isCurrent ? <Badge variant="success">Piano attivo</Badge> : null}
+            <Card
+              key={entry}
+              className={cn(
+                "relative overflow-hidden",
+                isCurrent && "border-primary/50 shadow-[0_22px_40px_-30px_rgba(79,70,229,0.5)]",
+                entry === "PRO" && !isCurrent && "border-violet-400/45"
+              )}
+              style={{ animation: `gCardIn .52s cubic-bezier(0.34,1.2,0.64,1) ${0.18 + index * 0.08}s both` }}
+            >
+              <div className={cn("absolute inset-x-0 top-0 h-1 bg-gradient-to-r", accent.gradient)} />
+
+              <CardHeader className="space-y-3 pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-lg">{entry}</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">{entry === "STARTER" ? "Per team in partenza" : entry === "PRO" ? "Per crescita operativa" : "Per controllo enterprise"}</p>
+                  </div>
+                  <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]", accent.chip)}>
+                    {isCurrent ? "Attuale" : entry === "PRO" ? "Consigliato" : "Premium"}
+                  </span>
                 </div>
-                <p className="text-2xl font-semibold text-foreground">{PLAN_MONTHLY_PRICING_EUR[entry]} EUR/mese</p>
+
+                <div>
+                  <p className="text-3xl font-semibold tracking-tight text-foreground">{formatPrice(priceValue)}</p>
+                  <p className="text-xs text-muted-foreground">{priceSuffix}</p>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {features.map((feature) => (
-                  <p key={`${entry}-${feature}`} className="text-sm text-foreground">
-                    • {featureLabels[feature]}
+
+              <CardContent className="space-y-3">
+                <div className="space-y-2">
+                  {highlights.map((item) => (
+                    <p key={`${entry}-${item}`} className="flex items-center gap-2 text-sm text-foreground">
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      {item}
+                    </p>
+                  ))}
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Feature incluse</p>
+                  <p className="mt-1 text-xs text-foreground">
+                    {features.length} funzionalita abilitate su {orderedFeatures.length}
                   </p>
-                ))}
+                </div>
+
+                {isCurrent ? (
+                  <Button className="w-full" disabled>
+                    Piano attivo
+                  </Button>
+                ) : (
+                  <Link
+                    to="/profilo"
+                    className={cn(
+                      "inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition",
+                      isUpgrade
+                        ? "bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_12px_24px_-14px_rgba(79,70,229,0.65)] hover:brightness-110"
+                        : "border border-input bg-background text-foreground hover:bg-muted"
+                    )}
+                  >
+                    {entry === "ENTERPRISE" ? <Crown className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+                    {buttonLabel}
+                  </Link>
+                )}
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      <Card>
+      <Card style={{ animation: "gCardIn .52s cubic-bezier(0.34,1.2,0.64,1) .4s both" }}>
         <CardHeader>
-          <CardTitle className="text-base">Tabella comparativa feature</CardTitle>
+          <CardTitle className="text-base">Confronto completo funzionalita</CardTitle>
         </CardHeader>
         <CardContent className="overflow-auto">
-          <Table>
+          <Table className="[&_th]:py-1.5 [&_td]:py-1.5 [&_td]:text-[12px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Feature</TableHead>
@@ -118,16 +257,23 @@ export const PlanUpgradePage = () => {
             <TableBody>
               {orderedFeatures.map((feature) => (
                 <TableRow key={feature}>
-                  <TableCell>{featureLabels[feature]}</TableCell>
-                  {SAAS_PLANS.map((entry) => (
-                    <TableCell key={`${feature}-${entry}`}>
-                      {getFeatureListForPlan(entry).includes(feature) ? (
-                        <Badge variant="success">Inclusa</Badge>
-                      ) : (
-                        <Badge variant="secondary">-</Badge>
-                      )}
-                    </TableCell>
-                  ))}
+                  <TableCell className="font-medium">{FEATURE_LABELS[feature as FeatureKey]}</TableCell>
+                  {SAAS_PLANS.map((entry) => {
+                    const enabled = getFeatureListForPlan(entry).includes(feature);
+                    return (
+                      <TableCell key={`${feature}-${entry}`}>
+                        {enabled ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/45 dark:bg-emerald-500/15 dark:text-emerald-200">
+                            <Check className="h-3.5 w-3.5" /> Inclusa
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/45 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                            <Lock className="h-3.5 w-3.5" /> Bloccata
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
             </TableBody>
@@ -135,16 +281,17 @@ export const PlanUpgradePage = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-5">
+      <Card style={{ animation: "gCardIn .52s cubic-bezier(0.34,1.2,0.64,1) .5s both" }}>
+        <CardContent className="flex flex-col items-center gap-3 py-5 text-center sm:flex-row sm:justify-between sm:text-left">
           <p className="text-sm text-muted-foreground">
-            Per upgrade/downgrade piano contatta Platform Admin dalla Console Platform.
+            Upgrade o downgrade vengono applicati dal Platform Admin. Nessuna perdita dati, nessun blocco operativo.
           </p>
           <Link
             to="/profilo"
-            className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/95"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/95"
           >
-            Contatta supporto / Profilo
+            Apri Profilo e richiedi aggiornamento
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </CardContent>
       </Card>

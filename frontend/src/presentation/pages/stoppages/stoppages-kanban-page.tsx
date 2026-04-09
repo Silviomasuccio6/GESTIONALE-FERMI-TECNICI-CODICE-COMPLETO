@@ -42,33 +42,44 @@ export const StoppagesKanbanPage = () => {
         subtitle="Sposta i fermi tra gli stati con drag and drop per un aggiornamento operativo rapido."
       />
       <div className="grid gap-4 xl:grid-cols-5">
-        {columns.map((column) => (
-          <Card
-            key={column.key}
-            className="min-h-[420px]"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => onDropToColumn(column.key)}
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{column.label}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {(grouped[column.key] ?? []).map((item) => (
-                <div
-                  key={item.id}
-                  draggable
-                  onDragStart={() => setDraggedId(item.id)}
-                  className="cursor-grab rounded-md border bg-muted/40 p-3 text-sm"
-                >
-                  <p className="font-semibold">{item.vehicle?.plate}</p>
-                  <p>{item.vehicle?.brand} {item.vehicle?.model}</p>
-                  <p className="text-muted-foreground">{item.site?.name}</p>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{item.reason}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        ))}
+        {columns.map((column) => {
+          const items = grouped[column.key] ?? [];
+          const isEmpty = items.length === 0;
+
+          return (
+            <Card
+              key={column.key}
+              className={isEmpty ? "min-h-[220px]" : "min-h-[360px]"}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => onDropToColumn(column.key)}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">{column.label}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {isEmpty ? (
+                  <div className="grid min-h-[120px] place-items-center rounded-md border border-dashed border-border/80 bg-muted/25 px-3 text-center">
+                    <p className="text-xs text-muted-foreground">Nessun fermo in questo stato</p>
+                  </div>
+                ) : null}
+
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={() => setDraggedId(item.id)}
+                    className="cursor-grab rounded-md border bg-muted/40 p-3 text-sm"
+                  >
+                    <p className="font-semibold">{item.vehicle?.plate}</p>
+                    <p>{item.vehicle?.brand} {item.vehicle?.model}</p>
+                    <p className="text-muted-foreground">{item.site?.name}</p>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{item.reason}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </section>
   );

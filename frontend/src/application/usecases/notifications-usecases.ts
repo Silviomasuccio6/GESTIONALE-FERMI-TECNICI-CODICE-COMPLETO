@@ -9,11 +9,5 @@ export const notificationsUseCases = {
     });
     if (!response.ok) throw new Error("Impossibile caricare notifiche");
     return response.json() as Promise<{ data: any[] }>;
-  },
-  streamUrl: () => {
-    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
-    const token = tokenStorage.get();
-    const query = token ? `?access_token=${encodeURIComponent(token)}` : "";
-    return `${base}/notifications/stream${query}`;
   }
 };

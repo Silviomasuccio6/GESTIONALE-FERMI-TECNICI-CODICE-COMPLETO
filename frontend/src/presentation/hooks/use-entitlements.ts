@@ -2,7 +2,14 @@ import { useCallback, useEffect } from "react";
 import { useAuthStore } from "../../application/stores/auth-store";
 import { useEntitlementsStore } from "../../application/stores/entitlements-store";
 import { authUseCases } from "../../application/usecases/auth-usecases";
-import { FeatureKey, getRequiredPlanForFeature, hasFeature } from "../../domain/constants/entitlements";
+import {
+  FeatureKey,
+  PLAN_MONTHLY_PRICING_EUR,
+  ensureKnownPlan,
+  getFeatureListForPlan,
+  getRequiredPlanForFeature,
+  hasFeature
+} from "../../domain/constants/entitlements";
 
 export const useEntitlements = () => {
   const token = useAuthStore((state) => state.token);
@@ -23,15 +30,29 @@ export const useEntitlements = () => {
       .entitlements()
       .then((data) => {
         if (!active) return;
+        const normalizedPlan = ensureKnownPlan(data.plan ?? data.license?.plan);
         setEntitlements({
-          plan: data.plan,
+          plan: normalizedPlan,
           priceMonthly: data.priceMonthly,
-          features: data.features ?? []
+          features: (data.features?.length ? data.features : getFeatureListForPlan(normalizedPlan)) ?? []
         });
       })
-      .catch((err) => {
+      .catch(async (err) => {
         if (!active) return;
-        setError((err as Error).message);
+        try {
+          const license = await authUseCases.licenseStatus();
+          if (!active) return;
+          const normalizedPlan = ensureKnownPlan(license.plan);
+          setEntitlements({
+            plan: normalizedPlan,
+            priceMonthly: PLAN_MONTHLY_PRICING_EUR[normalizedPlan],
+            features: getFeatureListForPlan(normalizedPlan)
+          });
+          return;
+        } catch {
+          if (!active) return;
+          setError((err as Error).message);
+        }
       });
 
     return () => {

@@ -239,7 +239,7 @@ export const UsersPage = () => {
           </div>
 
           <div className="hidden md:block">
-            <Table>
+            <Table className="text-[12px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
@@ -254,24 +254,24 @@ export const UsersPage = () => {
                   const role = user.roles?.[0] ?? "OPERATOR";
                   return (
                     <TableRow key={user.id}>
-                      <TableCell>{user.firstName} {user.lastName}</TableCell>
-                      <TableCell>{user.email}</TableCell>
+                      <TableCell className="text-xs font-medium">{user.firstName} {user.lastName}</TableCell>
+                      <TableCell className="text-xs">{user.email}</TableCell>
                       <TableCell>
-                        <Select value={role} onChange={(e) => onRoleChange(user.id, e.target.value as any)}>
+                        <Select className="h-7 text-[11px]" value={role} onChange={(e) => onRoleChange(user.id, e.target.value as any)}>
                           {roles.map((r) => (
                             <option key={r} value={r}>{ruoloLabel[r]}</option>
                           ))}
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Select value={user.status} onChange={(e) => onStatusChange(user.id, e.target.value as any)}>
+                        <Select className="h-7 text-[11px]" value={user.status} onChange={(e) => onStatusChange(user.id, e.target.value as any)}>
                           <option value="ACTIVE">{statoLabel.ACTIVE}</option>
                           <option value="INVITED">{statoLabel.INVITED}</option>
                           <option value="SUSPENDED">{statoLabel.SUSPENDED}</option>
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Button variant="destructive" size="sm" onClick={() => onDelete(user.id)}>Disattiva</Button>
+                        <Button variant="destructive" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onDelete(user.id)}>Disattiva</Button>
                       </TableCell>
                     </TableRow>
                   );

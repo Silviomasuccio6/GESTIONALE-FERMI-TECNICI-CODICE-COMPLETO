@@ -8,6 +8,34 @@ export const statsUseCases = {
   workshopsCapacity: (params?: Record<string, string | number | undefined>) => httpClient.get<{ data: any[] }>("/stats/workshops/capacity", params),
   teamPerformance: (params?: Record<string, string | number | undefined>) => httpClient.get<{ data: any[] }>("/stats/team/performance", params),
   aiSuggestions: () => httpClient.get<{ data: any[] }>("/stats/ai/suggestions"),
+  downloadAnalyticsXlsx: async (params?: Record<string, string | number | undefined>) => {
+    const query = new URLSearchParams();
+    Object.entries(params ?? {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && `${value}` !== "") query.set(key, String(value));
+    });
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+    const token = tokenStorage.get();
+    const response = await fetch(`${base}/stats/analytics/export.xlsx?${query.toString()}`, {
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    if (!response.ok) {
+      let message = "Download report enterprise fallito";
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const payload = await response.json().catch(() => null);
+        if (payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string") {
+          message = payload.message;
+        }
+      } else {
+        const raw = await response.text().catch(() => "");
+        const trimmed = raw.trim();
+        if (trimmed) message = trimmed.slice(0, 220);
+      }
+      throw new Error(message);
+    }
+    return response.blob();
+  },
   downloadAnalyticsCsv: async (params?: Record<string, string | number | undefined>) => {
     const query = new URLSearchParams();
     Object.entries(params ?? {}).forEach(([key, value]) => {
@@ -16,15 +44,23 @@ export const statsUseCases = {
     const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
     const token = tokenStorage.get();
     const response = await fetch(`${base}/stats/analytics/export.csv?${query.toString()}`, {
+      credentials: "include",
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
     if (!response.ok) {
-      try {
-        const payload = await response.json();
-        throw new Error(payload?.message || "Download report fallito");
-      } catch {
-        throw new Error("Download report fallito");
+      let message = "Download report fallito";
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const payload = await response.json().catch(() => null);
+        if (payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string") {
+          message = payload.message;
+        }
+      } else {
+        const raw = await response.text().catch(() => "");
+        const trimmed = raw.trim();
+        if (trimmed) message = trimmed.slice(0, 220);
       }
+      throw new Error(message);
     }
     return response.blob();
   }

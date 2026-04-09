@@ -31,6 +31,19 @@ export const vehicleSchema = z.object({
   year: z.number().int().min(1950).max(2100).optional(),
   currentKm: z.number().int().min(0).optional().nullable(),
   maintenanceIntervalKm: z.number().int().min(100).optional().nullable(),
+  registrationDate: z.coerce.date().optional().nullable(),
+  lastRevisionAt: z.coerce.date().optional().nullable(),
+  revisionDueAt: z.coerce.date().optional().nullable(),
   notes: z.string().optional(),
   isActive: z.boolean().optional()
+});
+
+export const vehicleMaintenanceSchema = z.object({
+  vehicleId: z.string().min(1),
+  performedAt: z.coerce.date(),
+  maintenanceType: z.string().min(2),
+  description: z.string().optional(),
+  workshopName: z.string().optional(),
+  kmAtService: z.number().int().min(0).optional().nullable(),
+  cost: z.number().min(0).optional().nullable()
 });

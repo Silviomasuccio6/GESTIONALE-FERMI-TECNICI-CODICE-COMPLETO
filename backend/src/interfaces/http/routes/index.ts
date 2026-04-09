@@ -2,6 +2,7 @@ import { Router } from "express";
 import { AcceptInviteUseCase } from "../../../application/usecases/auth/accept-invite-usecase.js";
 import { LoginUseCase } from "../../../application/usecases/auth/login-usecase.js";
 import { ManageProfileUseCase } from "../../../application/usecases/auth/manage-profile-usecase.js";
+import { ImportMasterDataUseCase } from "../../../application/usecases/master-data/import-master-data-usecase.js";
 import { RequestPasswordResetUseCase } from "../../../application/usecases/auth/request-password-reset-usecase.js";
 import { ResetPasswordUseCase } from "../../../application/usecases/auth/reset-password-usecase.js";
 import { SignupUseCase } from "../../../application/usecases/auth/signup-usecase.js";
@@ -17,6 +18,7 @@ import { AuthSessionService } from "../../../application/services/auth-session-s
 import { AuthThreatDetectionService } from "../../../application/services/auth-threat-detection-service.js";
 import { LicensePolicyService } from "../../../application/services/license-policy-service.js";
 import { NotificationsService } from "../../../application/services/notifications-service.js";
+import { SocialOAuthService } from "../../../application/services/social-oauth-service.js";
 import { SettingsService } from "../../../application/services/settings-service.js";
 import { prisma } from "../../../infrastructure/database/prisma/client.js";
 import { EmailQueueService } from "../../../infrastructure/email/email-queue-service.js";
@@ -38,6 +40,7 @@ import { StatsController } from "../controllers/stats-controller.js";
 import { StoppagesController } from "../controllers/stoppages-controller.js";
 import { UsersController } from "../controllers/users-controller.js";
 import { requireAuth } from "../middlewares/auth.js";
+import { requireCsrfProtection } from "../middlewares/csrf-protection.js";
 import { createRequireFeature } from "../middlewares/feature-entitlements.js";
 import { requireValidLicense } from "../middlewares/license-guard.js";
 import { authRoutes } from "./auth-routes.js";
@@ -50,6 +53,7 @@ import { stoppagesRoutes } from "./stoppages-routes.js";
 import { uploadsRoutes } from "./uploads-routes.js";
 import { usersRoutes } from "./users-routes.js";
 import { TokenService } from "../../../application/services/token-service.js";
+import { asyncHandler } from "./async-handler.js";
 
 const userRepo = new PrismaUserRepository();
 const siteRepo = new PrismaSiteRepository();
@@ -69,6 +73,7 @@ const requireFeature = createRequireFeature(licensePolicyService, auditRepo);
 const tokenService = new TokenService();
 const authSessionService = new AuthSessionService(tokenService, userRepo);
 const authThreatDetectionService = new AuthThreatDetectionService(auditRepo);
+const socialOAuthService = new SocialOAuthService();
 
 const signupUseCase = new SignupUseCase(userRepo);
 const loginUseCase = new LoginUseCase(userRepo, tokenService, licensePolicyService, authSessionService);
@@ -80,6 +85,7 @@ const usersUseCases = new ManageUsersUseCases(userRepo, emailQueueService);
 const sitesUseCases = new ManageSitesUseCases(siteRepo);
 const workshopsUseCases = new ManageWorkshopsUseCases(workshopRepo);
 const vehiclesUseCases = new ManageVehiclesUseCases(vehicleRepo);
+const importMasterDataUseCase = new ImportMasterDataUseCase();
 const stoppagesUseCases = new ManageStoppagesUseCases(stoppageRepo);
 const reminderUseCase = new SendReminderUseCase(stoppageRepo, reminderRepo, emailQueueService);
 const statsUseCase = new GetDashboardStatsUseCase();
@@ -96,10 +102,16 @@ const authController = new AuthController(
     manageProfileUseCase,
     licensePolicyService,
     authSessionService,
-    authThreatDetectionService
+    authThreatDetectionService,
+    socialOAuthService
 );
 const usersController = new UsersController(usersUseCases);
-const masterDataController = new MasterDataController(sitesUseCases, workshopsUseCases, vehiclesUseCases);
+const masterDataController = new MasterDataController(
+  sitesUseCases,
+  workshopsUseCases,
+  vehiclesUseCases,
+  importMasterDataUseCase
+);
 const stoppagesController = new StoppagesController(stoppagesUseCases, reminderUseCase, stoppageOpsRepo);
 const statsController = new StatsController(statsUseCase);
 const notificationsController = new NotificationsController(notificationsService);
@@ -108,17 +120,24 @@ const auditController = new AuditController(auditService);
 
 export const apiRouter = Router();
 apiRouter.get("/health", (_req, res) => res.json({ ok: true, service: "fermi-backend", timestamp: new Date().toISOString() }));
+apiRouter.get("/calendar/apple/feed.ics", asyncHandler(stoppagesController.appleCalendarFeedPublic));
+apiRouter.get("/calendar/google/callback", asyncHandler(stoppagesController.googleCalendarCallback));
 apiRouter.get("/ready", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ok: true, db: "up" });
-  } catch (error) {
-    res.status(503).json({ ok: false, db: "down", error: (error as Error).message });
+  } catch {
+    res.status(503).json({
+      ok: false,
+      db: "down",
+      message: process.env.NODE_ENV === "production" ? "Database non disponibile" : "Database query failed"
+    });
   }
 });
 apiRouter.use("/auth", authRoutes(authController));
 apiRouter.use(requireAuth);
 apiRouter.use(requireValidLicense(licensePolicyService));
+apiRouter.use(requireCsrfProtection);
 apiRouter.use("/users", usersRoutes(usersController));
 apiRouter.use("/master-data", masterDataRoutes(masterDataController));
 apiRouter.use("/stoppages", stoppagesRoutes(stoppagesController, requireFeature));

@@ -4,6 +4,7 @@ import { masterDataUseCases } from "../../../application/usecases/master-data-us
 export const SitesPage = () => (
   <GenericCrudPage
     title="Anagrafiche Sedi"
+    createLabel="Nuova sede"
     list={(params) => masterDataUseCases.listSites(params)}
     create={(input) => masterDataUseCases.createSite(input)}
     update={(id, input) => masterDataUseCases.updateSite(id, input)}

@@ -2,7 +2,8 @@ import {
   NotificationInvitedUserRow,
   NotificationReminderRow,
   NotificationsRepository,
-  NotificationStoppageRow
+  NotificationStoppageRow,
+  NotificationVehicleDeadlineRow
 } from "../../domain/repositories/notifications-repository.js";
 import { prisma } from "../database/prisma/client.js";
 
@@ -36,5 +37,30 @@ export class PrismaNotificationsRepository implements NotificationsRepository {
       orderBy: { createdAt: "asc" },
       take
     }) as unknown as NotificationInvitedUserRow[];
+  }
+
+  async listVehicleDeadlineCandidates(tenantId: string, take: number): Promise<NotificationVehicleDeadlineRow[]> {
+    return prisma.vehicle.findMany({
+      where: { tenantId, deletedAt: null, isActive: true },
+      orderBy: [{ updatedAt: "desc" }],
+      take,
+      select: {
+        id: true,
+        plate: true,
+        brand: true,
+        model: true,
+        updatedAt: true,
+        currentKm: true,
+        maintenanceIntervalKm: true,
+        revisionDueAt: true,
+        site: { select: { name: true } },
+        maintenances: {
+          where: { tenantId, deletedAt: null },
+          orderBy: [{ performedAt: "desc" }, { createdAt: "desc" }],
+          take: 1,
+          select: { performedAt: true, kmAtService: true }
+        }
+      }
+    }) as unknown as NotificationVehicleDeadlineRow[];
   }
 }

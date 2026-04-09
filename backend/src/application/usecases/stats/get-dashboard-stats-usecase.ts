@@ -147,13 +147,12 @@ export class GetDashboardStatsUseCase {
     const start = filters.dateFrom ?? new Date(now.getTime() - 90 * dayMs);
     const end = filters.dateTo ?? now;
 
-    const where = {
+    const whereBase = {
       tenantId,
       deletedAt: null,
       ...(filters.siteId ? { siteId: filters.siteId } : {}),
       ...(filters.workshopId ? { workshopId: filters.workshopId } : {}),
       ...(filters.status ? { status: filters.status } : {}),
-      openedAt: { gte: start, lte: end },
       vehicle: {
         ...(filters.plate ? { plate: { contains: filters.plate, mode: "insensitive" as const } } : {}),
         ...(filters.brand ? { brand: { contains: filters.brand, mode: "insensitive" as const } } : {}),
@@ -161,24 +160,30 @@ export class GetDashboardStatsUseCase {
       }
     };
 
-    const stoppages = await prisma.stoppage.findMany({
-      where,
-      include: {
-        site: true,
-        workshop: true,
-        vehicle: true,
-        reminders: true
-      },
-      orderBy: { openedAt: "desc" }
-    });
-
-    const reminderIds = stoppages.map((x) => x.id);
-    const reminders = reminderIds.length
-      ? await prisma.reminder.findMany({
-          where: { tenantId, stoppageId: { in: reminderIds }, sentAt: { gte: start, lte: end } },
-          orderBy: { sentAt: "asc" }
-        })
-      : [];
+    const [stoppages, closedTrendRows, reminders] = await Promise.all([
+      prisma.stoppage.findMany({
+        where: { ...whereBase, openedAt: { gte: start, lte: end } },
+        include: {
+          site: true,
+          workshop: true,
+          vehicle: true,
+          reminders: true
+        },
+        orderBy: { openedAt: "desc" }
+      }),
+      prisma.stoppage.findMany({
+        where: { ...whereBase, closedAt: { gte: start, lte: end } },
+        select: { closedAt: true }
+      }),
+      prisma.reminder.findMany({
+        where: {
+          tenantId,
+          sentAt: { gte: start, lte: end },
+          stoppage: whereBase
+        },
+        orderBy: { sentAt: "asc" }
+      })
+    ]);
 
     const activeStatuses = new Set<StoppageStatus>(["OPEN", "IN_PROGRESS", "WAITING_PARTS", "SOLICITED"]);
     const closed = stoppages.filter((x) => x.status === "CLOSED" && x.closedAt);
@@ -228,10 +233,12 @@ export class GetDashboardStatsUseCase {
       const openKey = stoppage.openedAt.toISOString().slice(0, 10);
       openedDailyMap.set(openKey, (openedDailyMap.get(openKey) ?? 0) + 1);
 
-      if (stoppage.closedAt) {
-        const closeKey = stoppage.closedAt.toISOString().slice(0, 10);
-        closedDailyMap.set(closeKey, (closedDailyMap.get(closeKey) ?? 0) + 1);
-      }
+    }
+
+    for (const row of closedTrendRows) {
+      if (!row.closedAt) continue;
+      const closeKey = row.closedAt.toISOString().slice(0, 10);
+      closedDailyMap.set(closeKey, (closedDailyMap.get(closeKey) ?? 0) + 1);
     }
 
     for (const reminder of reminders) {

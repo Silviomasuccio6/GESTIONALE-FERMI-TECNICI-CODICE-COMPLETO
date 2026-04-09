@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { PrismaClient, RoleKey } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -38,6 +39,16 @@ const rolePermissions: Record<RoleKey, string[]> = {
 };
 
 async function main() {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Seed demo disabilitato in produzione");
+  }
+
+  const configuredDemoPassword = process.env.DEMO_ADMIN_PASSWORD?.trim();
+  if (configuredDemoPassword && configuredDemoPassword.length < 12) {
+    throw new Error("DEMO_ADMIN_PASSWORD deve avere almeno 12 caratteri");
+  }
+  const demoAdminPassword = configuredDemoPassword || crypto.randomBytes(18).toString("base64url");
+
   for (const key of permissionKeys) {
     await prisma.permission.upsert({
       where: { key },
@@ -80,7 +91,7 @@ async function main() {
     }
   });
 
-  const passwordHash = await bcrypt.hash("Admin123!", 12);
+  const passwordHash = await bcrypt.hash(demoAdminPassword, 12);
   const admin = await prisma.user.upsert({
     where: {
       tenantId_email: {
@@ -119,6 +130,10 @@ async function main() {
   });
 
   console.log("Seed completato");
+  console.log(`Demo admin: admin@demo.local`);
+  if (!configuredDemoPassword) {
+    console.log(`Demo password generata: ${demoAdminPassword}`);
+  }
 }
 
 main()

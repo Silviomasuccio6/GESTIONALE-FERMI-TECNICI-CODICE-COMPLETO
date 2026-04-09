@@ -18,6 +18,33 @@ export const stoppagesUseCases = {
   slaOverview: () => httpClient.get<{ kpis: any; data: any[] }>("/stoppages/sla/overview"),
   assignmentSuggestions: () => httpClient.get<{ data: any[]; suggestions: any[] }>("/stoppages/assignment/suggestions"),
   calendar: (params?: Record<string, string | number | undefined>) => httpClient.get<{ data: any[] }>("/stoppages/calendar", params),
+  getAppleCalendarFeed: (params?: Record<string, string | number | undefined>) =>
+    httpClient.get<{ data: { httpUrl: string; webcalUrl: string; expiresAt: string | null; privacy?: "masked" | "full" } }>(
+      "/stoppages/calendar/apple/feed",
+      params
+    ),
+  syncGoogleCalendar: (input?: Record<string, string | number | undefined>) =>
+    httpClient.post<{
+      data: {
+        requiresOAuth: boolean;
+        authUrl?: string;
+        synced?: number;
+        pushed?: number;
+        imported?: number;
+        updated?: number;
+        removed?: number;
+        accountEmail?: string | null;
+        calendarUrl?: string;
+      };
+    }>("/stoppages/calendar/google/sync", input ?? {}),
+  importAppleCalendarFeed: (input: { feedUrl: string; dateFrom?: string; dateTo?: string }) =>
+    httpClient.post<{ data: { imported: number; updated: number; scanned: number } }>("/stoppages/calendar/apple/import", input),
+  listCustomCalendarEvents: (params?: Record<string, string | number | undefined>) =>
+    httpClient.get<{ data: any[] }>("/stoppages/calendar/custom", params),
+  createCustomCalendarEvent: (input: unknown) => httpClient.post<{ data: any }>("/stoppages/calendar/custom", input),
+  updateCustomCalendarEvent: (eventId: string, input: unknown) =>
+    httpClient.patch<{ data: any }>(`/stoppages/calendar/custom/${eventId}`, input),
+  deleteCustomCalendarEvent: (eventId: string) => httpClient.delete(`/stoppages/calendar/custom/${eventId}`),
   costsSummary: (params?: Record<string, string | number | undefined>) => httpClient.get<any>("/stoppages/costs/summary", params),
   costsVariance: (params?: Record<string, string | number | undefined>) => httpClient.get<any>("/stoppages/costs/variance", params),
   slaEscalations: () => httpClient.get<{ kpis: any; data: any[] }>("/stoppages/sla/escalations"),

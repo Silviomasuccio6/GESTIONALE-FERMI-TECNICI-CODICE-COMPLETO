@@ -64,6 +64,21 @@ export class AuthSessionService {
       }
     }
 
+    await prisma.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        userId: input.userId,
+        action: "AUTH_SESSION_CREATED",
+        resource: "auth_session",
+        resourceId: session.id,
+        details: {
+          sessionId: session.id,
+          ipAddress: input.ipAddress ?? null,
+          userAgent: input.userAgent ?? null
+        } as any
+      }
+    });
+
     const accessToken = this.tokenService.signAccess({
       userId: input.userId,
       tenantId: input.tenantId,
@@ -103,27 +118,98 @@ export class AuthSessionService {
       data: { revokedAt: new Date(), replacedById: rotated.sessionId }
     });
 
+    await prisma.auditLog.create({
+      data: {
+        tenantId: current.tenantId,
+        userId: current.userId,
+        action: "AUTH_SESSION_REFRESHED",
+        resource: "auth_session",
+        resourceId: current.id,
+        details: {
+          oldSessionId: current.id,
+          newSessionId: rotated.sessionId,
+          ipAddress: ipAddress ?? null,
+          userAgent: userAgent ?? null
+        } as any
+      }
+    });
+
     return { ...rotated, user };
   }
 
   async revokeCurrent(sessionId: string, userId: string) {
-    await prisma.refreshSession.updateMany({
+    const result = await prisma.refreshSession.updateMany({
       where: { id: sessionId, userId, revokedAt: null },
       data: { revokedAt: new Date() }
     });
+    if (result.count > 0) {
+      const session = await prisma.refreshSession.findFirst({
+        where: { id: sessionId, userId },
+        select: { tenantId: true }
+      });
+      if (session) {
+        await prisma.auditLog.create({
+          data: {
+            tenantId: session.tenantId,
+            userId,
+            action: "AUTH_SESSION_REVOKED_CURRENT",
+            resource: "auth_session",
+            resourceId: sessionId
+          }
+        });
+      }
+    }
     return { revoked: true };
   }
 
   async revokeById(sessionId: string, userId: string) {
-    await prisma.refreshSession.updateMany({
+    const result = await prisma.refreshSession.updateMany({
       where: { id: sessionId, userId, revokedAt: null },
       data: { revokedAt: new Date() }
     });
+    if (result.count > 0) {
+      const session = await prisma.refreshSession.findFirst({
+        where: { id: sessionId, userId },
+        select: { tenantId: true }
+      });
+      if (session) {
+        await prisma.auditLog.create({
+          data: {
+            tenantId: session.tenantId,
+            userId,
+            action: "AUTH_SESSION_REVOKED_BY_ID",
+            resource: "auth_session",
+            resourceId: sessionId
+          }
+        });
+      }
+    }
     return { revoked: true };
   }
 
   async revokeAll(userId: string) {
+    const sessions = await prisma.refreshSession.findMany({
+      where: { userId, revokedAt: null },
+      select: { id: true, tenantId: true },
+      take: 100
+    });
+
     await prisma.refreshSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+
+    const tenantId = sessions[0]?.tenantId;
+    if (tenantId) {
+      await prisma.auditLog.create({
+        data: {
+          tenantId,
+          userId,
+          action: "AUTH_SESSIONS_REVOKED_ALL",
+          resource: "auth_session",
+          details: {
+            count: sessions.length
+          } as any
+        }
+      });
+    }
     return { revoked: true };
   }
 

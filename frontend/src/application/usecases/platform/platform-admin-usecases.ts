@@ -15,6 +15,7 @@ export type LicenseStatus = "ACTIVE" | "SUSPENDED" | "EXPIRED" | "TRIAL";
 export type QuickAction =
   | "ACTIVATE_LICENSE"
   | "SUSPEND_LICENSE"
+  | "TRIAL_14_DAYS"
   | "RENEW_30_DAYS"
   | "RENEW_365_DAYS"
   | "DEACTIVATE_TENANT"
@@ -23,6 +24,8 @@ export type QuickAction =
 export type PlatformRevenueMetrics = {
   selectedMonth: string;
   previousMonth: string;
+  range?: "2W" | "1M" | "6M" | "1Y";
+  granularity?: "day" | "month";
   planPricing: Record<"STARTER" | "PRO" | "ENTERPRISE", number>;
   assumptions: {
     formula: string;
@@ -51,6 +54,24 @@ export type PlatformRevenueMetrics = {
   }>;
 };
 
+export type PlatformDashboardLiveMetrics = {
+  generatedAt: string;
+  liveWindowMinutes: number;
+  activeUsersLive: number;
+  previousWindowActiveUsers: number;
+  deltaFromPreviousWindow: number;
+  activeTenantsLive: number;
+  topTenants: Array<{
+    tenantId: string;
+    tenantName: string;
+    activeUsers: number;
+  }>;
+  mrrMonthly: number;
+  mrrLost: number;
+  mrrDeltaFromPrevious: number;
+  month: string;
+};
+
 const toPlatformError = (response: Response, payload: any, fallback: string): PlatformApiError => {
   const error = new Error(payload?.message || fallback) as PlatformApiError;
   error.status = response.status;
@@ -65,7 +86,7 @@ const throwIfNotOk = async (response: Response, fallback: string) => {
 };
 
 export const platformAdminUseCases = {
-  login: async (input: { email: string; password: string }) => {
+  login: async (input: { email: string; password: string; otp?: string }) => {
     const response = await fetch(`${apiBase}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -95,19 +116,45 @@ export const platformAdminUseCases = {
     if (!response.ok) throw toPlatformError(response, data, "Impossibile caricare eventi recenti");
     return data as { data: any[] };
   },
-  revenueMetrics: async (input?: { month?: string; months?: number }) => {
+  revenueMetrics: async (input?: { month?: string; months?: number; range?: "2W" | "1M" | "6M" | "1Y" }) => {
     const query = new URLSearchParams();
     if (input?.month) query.set("month", input.month);
     if (input?.months) query.set("months", String(input.months));
+    if (input?.range) query.set("range", input.range);
     const response = await fetch(`${apiBase}/metrics/revenue?${query.toString()}`, { headers: { ...authHeaders() } });
     const data = await response.json();
     if (!response.ok) throw toPlatformError(response, data, "Impossibile caricare report ricavi");
     return data as PlatformRevenueMetrics;
   },
-  revenueCsv: async (input?: { month?: string; months?: number }) => {
+  dashboardLiveMetrics: async (input?: { windowMinutes?: number }) => {
+    const query = new URLSearchParams();
+    if (input?.windowMinutes) query.set("windowMinutes", String(input.windowMinutes));
+    const response = await fetch(`${apiBase}/metrics/dashboard-live?${query.toString()}`, { headers: { ...authHeaders() } });
+    if (response.status === 404) {
+      const now = new Date();
+      return {
+        generatedAt: now.toISOString(),
+        liveWindowMinutes: input?.windowMinutes ?? 15,
+        activeUsersLive: 0,
+        previousWindowActiveUsers: 0,
+        deltaFromPreviousWindow: 0,
+        activeTenantsLive: 0,
+        topTenants: [],
+        mrrMonthly: 0,
+        mrrLost: 0,
+        mrrDeltaFromPrevious: 0,
+        month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+      } as PlatformDashboardLiveMetrics;
+    }
+    const data = await response.json();
+    if (!response.ok) throw toPlatformError(response, data, "Impossibile caricare metriche live dashboard");
+    return data as PlatformDashboardLiveMetrics;
+  },
+  revenueCsv: async (input?: { month?: string; months?: number; range?: "2W" | "1M" | "6M" | "1Y" }) => {
     const query = new URLSearchParams();
     if (input?.month) query.set("month", input.month);
     if (input?.months) query.set("months", String(input.months));
+    if (input?.range) query.set("range", input.range);
     const response = await fetch(`${apiBase}/metrics/revenue/export.csv?${query.toString()}`, {
       headers: { ...authHeaders() }
     });

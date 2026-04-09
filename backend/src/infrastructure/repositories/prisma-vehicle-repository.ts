@@ -11,7 +11,9 @@ export class PrismaVehicleRepository implements VehicleRepository {
             OR: [
               { plate: { contains: params.search, mode: "insensitive" as const } },
               { brand: { contains: params.search, mode: "insensitive" as const } },
-              { model: { contains: params.search, mode: "insensitive" as const } }
+              { model: { contains: params.search, mode: "insensitive" as const } },
+              { site: { name: { contains: params.search, mode: "insensitive" as const } } },
+              { site: { city: { contains: params.search, mode: "insensitive" as const } } }
             ]
           }
         : {})
@@ -19,7 +21,13 @@ export class PrismaVehicleRepository implements VehicleRepository {
 
     const [total, data] = await Promise.all([
       prisma.vehicle.count({ where }),
-      prisma.vehicle.findMany({ where, skip: params.skip, take: params.take, orderBy: { createdAt: "desc" }, include: { site: true, photos: true } })
+      prisma.vehicle.findMany({
+        where,
+        skip: params.skip,
+        take: params.take,
+        orderBy: { createdAt: "desc" },
+        include: { site: true, photos: true, booklet: true }
+      })
     ]);
 
     return { data, total };
@@ -32,7 +40,14 @@ export class PrismaVehicleRepository implements VehicleRepository {
         deletedAt: null,
         plate: { equals: plate, mode: "insensitive" }
       },
-      include: { site: true, photos: true }
+      include: { site: true, photos: true, booklet: true }
+    });
+  }
+
+  findById(tenantId: string, id: string) {
+    return prisma.vehicle.findFirst({
+      where: { id, tenantId, deletedAt: null },
+      include: { site: true, photos: true, booklet: true }
     });
   }
 
@@ -42,7 +57,10 @@ export class PrismaVehicleRepository implements VehicleRepository {
 
   async update(tenantId: string, id: string, input: Record<string, unknown>) {
     await prisma.vehicle.updateMany({ where: { id, tenantId, deletedAt: null }, data: input as never });
-    return prisma.vehicle.findFirst({ where: { id, tenantId, deletedAt: null }, include: { site: true, photos: true } });
+    return prisma.vehicle.findFirst({
+      where: { id, tenantId, deletedAt: null },
+      include: { site: true, photos: true, booklet: true }
+    });
   }
 
   async delete(tenantId: string, id: string): Promise<void> {

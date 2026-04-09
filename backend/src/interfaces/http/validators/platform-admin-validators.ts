@@ -4,7 +4,8 @@ export const tenantIdSchema = z.string().trim().min(1).max(120).regex(/^[a-zA-Z0
 
 export const platformLoginSchema = z.object({
   email: z.string().email().max(320),
-  password: z.string().min(12).max(256)
+  password: z.string().min(12).max(256),
+  otp: z.string().trim().regex(/^\d{6}$/).optional()
 });
 
 export const updateLicenseSchema = z.object({
@@ -24,6 +25,7 @@ export const quickLicenseActionSchema = z.object({
   action: z.enum([
     "ACTIVATE_LICENSE",
     "SUSPEND_LICENSE",
+    "TRIAL_14_DAYS",
     "RENEW_30_DAYS",
     "RENEW_365_DAYS",
     "DEACTIVATE_TENANT",

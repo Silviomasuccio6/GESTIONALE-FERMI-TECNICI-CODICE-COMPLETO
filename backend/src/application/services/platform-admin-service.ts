@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import {
   PLAN_MONTHLY_PRICING_EUR,
@@ -20,6 +21,7 @@ import { PlatformLoginGuardService } from "./platform-login-guard-service.js";
 type QuickAction =
   | "ACTIVATE_LICENSE"
   | "SUSPEND_LICENSE"
+  | "TRIAL_14_DAYS"
   | "RENEW_30_DAYS"
   | "RENEW_365_DAYS"
   | "DEACTIVATE_TENANT"
@@ -79,7 +81,19 @@ const toMonthKey = (value: Date) => `${value.getUTCFullYear()}-${String(value.ge
 
 const money = (value: number) => Number(value.toFixed(2));
 
-const csvEscape = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+const csvEscape = (value: unknown) => {
+  const raw = String(value ?? "");
+  const formulaSafe = /^[\s]*[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return `"${formulaSafe.replace(/"/g, '""')}"`;
+};
+
+const hashForSafeCompare = (value: string) => crypto.createHash("sha256").update(value).digest();
+
+const constantTimeEqual = (left: string, right: string) => {
+  const leftHash = hashForSafeCompare(left);
+  const rightHash = hashForSafeCompare(right);
+  return crypto.timingSafeEqual(leftHash, rightHash);
+};
 
 export class PlatformAdminService {
   constructor(
@@ -88,23 +102,29 @@ export class PlatformAdminService {
     private readonly loginGuard: PlatformLoginGuardService
   ) {}
 
-  async login(input: { email: string; password: string; ip: string }) {
-    this.loginGuard.assertAllowed(input.ip, input.email);
+  async login(input: { email: string; password: string; ip: string; otp?: string }) {
+    const normalizedEmail = input.email.trim().toLowerCase();
+    await this.loginGuard.assertAllowed(input.ip, normalizedEmail);
 
-    if (input.email !== env.PLATFORM_ADMIN_EMAIL || input.password !== env.PLATFORM_ADMIN_PASSWORD) {
-      const failure = this.loginGuard.registerFailure(input.ip, input.email);
+    const emailOk = constantTimeEqual(normalizedEmail, env.PLATFORM_ADMIN_EMAIL.trim().toLowerCase());
+    const passwordOk = constantTimeEqual(input.password, env.PLATFORM_ADMIN_PASSWORD);
+    const otpRequired = Boolean(env.PLATFORM_ADMIN_OTP);
+    const otpOk = !otpRequired || constantTimeEqual(input.otp ?? "", env.PLATFORM_ADMIN_OTP!);
+
+    if (!emailOk || !passwordOk || !otpOk) {
+      const failure = await this.loginGuard.registerFailure(input.ip, normalizedEmail);
 
       if (failure.locked) {
         await this.alerts.notify({
           type: "PLATFORM_LOGIN_LOCKED",
-          actor: input.email,
+          actor: normalizedEmail,
           sourceIp: input.ip,
           details: `Login locked after ${failure.failures} failures. blockedUntil=${failure.blockedUntil ?? "n/a"}`
         });
       } else if (failure.failures >= Math.max(3, env.PLATFORM_LOGIN_MAX_ATTEMPTS - 1)) {
         await this.alerts.notify({
           type: "PLATFORM_LOGIN_FAILURES",
-          actor: input.email,
+          actor: normalizedEmail,
           sourceIp: input.ip,
           details: `Repeated failed login attempts: ${failure.failures}`
         });
@@ -113,7 +133,7 @@ export class PlatformAdminService {
       throw new AppError("Credenziali platform admin non valide", 401, "UNAUTHORIZED");
     }
 
-    this.loginGuard.registerSuccess(input.ip, input.email);
+    await this.loginGuard.registerSuccess(input.ip, normalizedEmail);
 
     const token = jwt.sign(
       {
@@ -286,12 +306,58 @@ export class PlatformAdminService {
 
     if (input.action === "DEACTIVATE_TENANT" || input.action === "REACTIVATE_TENANT") {
       const isActive = input.action === "REACTIVATE_TENANT";
-      return this.updateTenantStatus({
+      const tenantStatusResult = await this.updateTenantStatus({
         tenantId: input.tenantId,
         actorUserId: input.actorUserId,
         sourceIp: input.sourceIp,
         isActive
       });
+
+      let nextStatus: PlatformLicenseStatus | null = null;
+      if (input.action === "DEACTIVATE_TENANT" && (currentLicense.status === "ACTIVE" || currentLicense.status === "TRIAL")) {
+        nextStatus = "SUSPENDED";
+      }
+      if (input.action === "REACTIVATE_TENANT" && currentLicense.status === "SUSPENDED") {
+        nextStatus = "ACTIVE";
+      }
+
+      if (!nextStatus) {
+        return { ...tenantStatusResult, action: input.action, before: currentLicense, after: currentLicense };
+      }
+
+      const after: PlatformLicense = {
+        ...currentLicense,
+        status: nextStatus,
+        updatedAt: new Date().toISOString()
+      };
+
+      await this.repository.setLicense(input.tenantId, input.actorUserId, after);
+      await this.repository.appendPlatformAudit({
+        tenantId: input.tenantId,
+        actorUserId: input.actorUserId,
+        action: "PLATFORM_LICENSE_QUICK_ACTION",
+        resource: "tenant",
+        resourceId: input.tenantId,
+        details: {
+          quickAction: input.action,
+          actor: input.actorUserId,
+          sourceIp: input.sourceIp,
+          happenedAt: new Date().toISOString(),
+          before: currentLicense,
+          after
+        }
+      });
+
+      await this.alerts.notify({
+        type: "PLATFORM_LICENSE_CHANGED",
+        tenant,
+        actor: input.actorUserId,
+        sourceIp: input.sourceIp,
+        before: currentLicense,
+        after
+      });
+
+      return { ...tenantStatusResult, action: input.action, before: currentLicense, after };
     }
 
     let nextLicense = { ...currentLicense };
@@ -301,6 +367,13 @@ export class PlatformAdminService {
     }
     if (input.action === "SUSPEND_LICENSE") {
       nextLicense = { ...nextLicense, status: "SUSPENDED" };
+    }
+    if (input.action === "TRIAL_14_DAYS") {
+      nextLicense = {
+        ...nextLicense,
+        status: "TRIAL",
+        expiresAt: addDaysIso(now, 14)
+      };
     }
     if (input.action === "RENEW_30_DAYS" || input.action === "RENEW_365_DAYS") {
       const days = input.action === "RENEW_30_DAYS" ? 30 : 365;

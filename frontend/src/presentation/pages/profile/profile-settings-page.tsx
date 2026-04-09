@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { authUseCases } from "../../../application/usecases/auth-usecases";
 import { settingsUseCases } from "../../../application/usecases/settings-usecases";
 import { useAuthStore } from "../../../application/stores/auth-store";
+import { PAID_FEATURES, FEATURE_LABELS } from "../../../domain/constants/feature-labels";
+import { FeatureKey } from "../../../domain/constants/entitlements";
 import { ThemeMode, getStoredTheme, setTheme } from "../../../infrastructure/theme/theme-manager";
+import { PremiumLockGate } from "../../components/common/premium-lock-gate";
 import { PageHeader } from "../../components/layout/page-header";
 import { Alert } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
@@ -12,6 +15,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Select } from "../../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { useEntitlements } from "../../hooks/use-entitlements";
 
 const settingsStorageKey = "fermi_user_settings_v1";
 
@@ -32,6 +36,20 @@ const defaultSettings: SettingsState = {
 export const ProfileSettingsPage = () => {
   const navigate = useNavigate();
   const { user, token, setUser, logout } = useAuthStore();
+  const { can, requiredPlan } = useEntitlements();
+  const canScheduledReports = can("scheduled_reports");
+  const canIntegrations = can("integrations_basic");
+  const canWebhooks = can("webhooks");
+  const premiumFeatureList = useMemo(
+    () =>
+      PAID_FEATURES.map((feature) => ({
+        feature,
+        label: FEATURE_LABELS[feature as FeatureKey],
+        enabled: can(feature as FeatureKey),
+        required: requiredPlan(feature as FeatureKey)
+      })),
+    [can, requiredPlan]
+  );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [logoutAllDevices, setLogoutAllDevices] = useState(false);
@@ -102,6 +120,16 @@ export const ProfileSettingsPage = () => {
     setSessions((result.data ?? []).filter((x) => !x.revokedAt));
   };
 
+  const logoutAndRedirect = async () => {
+    try {
+      await authUseCases.logout();
+    } catch {
+      // Force local logout even if API is temporarily unreachable.
+    }
+    logout();
+    navigate("/login");
+  };
+
   const onProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -146,8 +174,7 @@ export const ProfileSettingsPage = () => {
       );
       formEl.reset();
       if (logoutAllDevices) {
-        logout();
-        navigate("/login");
+        await logoutAndRedirect();
         return;
       }
       await reloadSessions();
@@ -255,8 +282,7 @@ export const ProfileSettingsPage = () => {
                   setError(null);
                   await authUseCases.revokeAllSessions();
                   setSuccess("Tutte le sessioni revocate. Effettuo il logout.");
-                  logout();
-                  navigate("/login");
+                  await logoutAndRedirect();
                 } catch (e) {
                   setError((e as Error).message);
                 }
@@ -287,8 +313,7 @@ export const ProfileSettingsPage = () => {
                           await authUseCases.revokeSession(session.id);
                           if (isCurrent) {
                             setSuccess("Sessione corrente revocata. Logout in corso.");
-                            logout();
-                            navigate("/login");
+                            await logoutAndRedirect();
                             return;
                           }
                           setSuccess("Sessione revocata.");
@@ -307,7 +332,7 @@ export const ProfileSettingsPage = () => {
           </div>
 
           <div className="hidden md:block">
-            <Table>
+            <Table className="[&_th]:py-1.5 [&_td]:py-1.5 [&_td]:text-[12px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Dispositivo</TableHead>
@@ -329,7 +354,7 @@ export const ProfileSettingsPage = () => {
                     const isCurrent = session.id === currentSessionId;
                     return (
                       <TableRow key={session.id}>
-                        <TableCell>
+                        <TableCell className="leading-tight">
                           <div>
                             <p className="font-medium">{isCurrent ? "Questo dispositivo" : "Altro dispositivo"}</p>
                             <p className="text-xs text-muted-foreground">{session.userAgent || "Device non disponibile"}</p>
@@ -342,14 +367,14 @@ export const ProfileSettingsPage = () => {
                           <Button
                             size="sm"
                             variant={isCurrent ? "destructive" : "outline"}
+                            className="h-7 px-2 text-[11px]"
                             onClick={async () => {
                               try {
                                 setError(null);
                                 await authUseCases.revokeSession(session.id);
                                 if (isCurrent) {
                                   setSuccess("Sessione corrente revocata. Logout in corso.");
-                                  logout();
-                                  navigate("/login");
+                                  await logoutAndRedirect();
                                   return;
                                 }
                                 setSuccess("Sessione revocata.");
@@ -460,61 +485,178 @@ export const ProfileSettingsPage = () => {
         </CardContent>
       </Card>
 
+      <div className="grid gap-4 xl:grid-cols-2">
+        {canScheduledReports ? (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Report schedulati</CardTitle></CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label>Abilita report schedulati</Label>
+                <Select value={reports.enabled ? "SI" : "NO"} onChange={(e) => setReports((r: any) => ({ ...r, enabled: e.target.value === "SI" }))}>
+                  <option value="NO">No</option>
+                  <option value="SI">Sì</option>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Frequenza</Label>
+                <Select value={reports.frequency ?? "weekly"} onChange={(e) => setReports((r: any) => ({ ...r, frequency: e.target.value }))}>
+                  <option value="daily">Giornaliera</option>
+                  <option value="weekly">Settimanale</option>
+                  <option value="monthly">Mensile</option>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Stile report</Label>
+                <Select value={reports.reportStyle ?? "EXECUTIVE"} onChange={(e) => setReports((r: any) => ({ ...r, reportStyle: e.target.value }))}>
+                  <option value="EXECUTIVE">Executive</option>
+                  <option value="BASIC">Basic</option>
+                </Select>
+              </div>
+              <div className="grid gap-1.5 md:col-span-2">
+                <Label>Destinatari report (email separate da virgola)</Label>
+                <Input
+                  value={(reports.recipients ?? []).join(",")}
+                  onChange={(e) => setReports((r: any) => ({ ...r, recipients: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) }))}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Button
+                  onClick={async () => {
+                    await settingsUseCases.updateReports(reports);
+                    setSuccess("Report schedulati salvati.");
+                  }}
+                >
+                  Salva report schedulati
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <PremiumLockGate
+            feature="scheduled_reports"
+            title="Report schedulati bloccati"
+            description="Automazione invio report disponibile dal piano PRO."
+          >
+            <Card>
+              <CardHeader><CardTitle className="text-base">Report schedulati</CardTitle></CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label>Abilita report schedulati</Label>
+                  <Select value="NO" disabled>
+                    <option value="NO">No</option>
+                  </Select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Frequenza</Label>
+                  <Select value="weekly" disabled>
+                    <option value="weekly">Settimanale</option>
+                  </Select>
+                </div>
+                <div className="grid gap-1.5 md:col-span-2">
+                  <Label>Destinatari report</Label>
+                  <Input value="" placeholder="nome@azienda.it" disabled />
+                </div>
+                <div className="md:col-span-2">
+                  <Button disabled>Salva report schedulati</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </PremiumLockGate>
+        )}
+
+        {canIntegrations ? (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Integrazioni</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">
+                Connettori base attivi. Per configurazioni webhook avanzate serve il piano ENTERPRISE.
+              </div>
+
+              <PremiumLockGate
+                feature="webhooks"
+                compact
+                title="Webhook bloccati"
+                description="Configurazione webhook disponibile dal piano ENTERPRISE."
+              >
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <Label>ERP Webhook URL</Label>
+                    <Input value={integrations.erpWebhookUrl ?? ""} onChange={(e) => setIntegrations((i: any) => ({ ...i, erpWebhookUrl: e.target.value }))} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Telematics Webhook URL</Label>
+                    <Input value={integrations.telematicsWebhookUrl ?? ""} onChange={(e) => setIntegrations((i: any) => ({ ...i, telematicsWebhookUrl: e.target.value }))} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Ticketing Webhook URL</Label>
+                    <Input value={integrations.ticketingWebhookUrl ?? ""} onChange={(e) => setIntegrations((i: any) => ({ ...i, ticketingWebhookUrl: e.target.value }))} />
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      await settingsUseCases.updateIntegrations(integrations);
+                      setSuccess("Integrazioni salvate.");
+                    }}
+                  >
+                    Salva integrazioni
+                  </Button>
+                </div>
+              </PremiumLockGate>
+            </CardContent>
+          </Card>
+        ) : (
+          <PremiumLockGate
+            feature="integrations_basic"
+            title="Integrazioni bloccate"
+            description="Le integrazioni base sono disponibili dal piano PRO."
+          >
+            <Card>
+              <CardHeader><CardTitle className="text-base">Integrazioni</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-1.5">
+                  <Label>ERP Webhook URL</Label>
+                  <Input value="" placeholder="https://..." disabled />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Telematics Webhook URL</Label>
+                  <Input value="" placeholder="https://..." disabled />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Ticketing Webhook URL</Label>
+                  <Input value="" placeholder="https://..." disabled />
+                </div>
+                <Button disabled>Salva integrazioni</Button>
+              </CardContent>
+            </Card>
+          </PremiumLockGate>
+        )}
+      </div>
+
       <Card>
-        <CardHeader><CardTitle className="text-base">Report schedulati e integrazioni</CardTitle></CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label>Abilita report schedulati</Label>
-            <Select value={reports.enabled ? "SI" : "NO"} onChange={(e) => setReports((r: any) => ({ ...r, enabled: e.target.value === "SI" }))}>
-              <option value="NO">No</option>
-              <option value="SI">Sì</option>
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Frequenza</Label>
-            <Select value={reports.frequency ?? "weekly"} onChange={(e) => setReports((r: any) => ({ ...r, frequency: e.target.value }))}>
-              <option value="daily">Giornaliera</option>
-              <option value="weekly">Settimanale</option>
-              <option value="monthly">Mensile</option>
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Stile report</Label>
-            <Select value={reports.reportStyle ?? "EXECUTIVE"} onChange={(e) => setReports((r: any) => ({ ...r, reportStyle: e.target.value }))}>
-              <option value="EXECUTIVE">Executive</option>
-              <option value="BASIC">Basic</option>
-            </Select>
-          </div>
-          <div className="grid gap-1.5 md:col-span-2">
-            <Label>Destinatari report (email separate da virgola)</Label>
-            <Input
-              value={(reports.recipients ?? []).join(",")}
-              onChange={(e) => setReports((r: any) => ({ ...r, recipients: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) }))}
-            />
-          </div>
-          <div className="grid gap-1.5 md:col-span-2">
-            <Label>ERP Webhook URL</Label>
-            <Input value={integrations.erpWebhookUrl ?? ""} onChange={(e) => setIntegrations((i: any) => ({ ...i, erpWebhookUrl: e.target.value }))} />
-          </div>
-          <div className="grid gap-1.5 md:col-span-2">
-            <Label>Telematics Webhook URL</Label>
-            <Input value={integrations.telematicsWebhookUrl ?? ""} onChange={(e) => setIntegrations((i: any) => ({ ...i, telematicsWebhookUrl: e.target.value }))} />
-          </div>
-          <div className="grid gap-1.5 md:col-span-2">
-            <Label>Ticketing Webhook URL</Label>
-            <Input value={integrations.ticketingWebhookUrl ?? ""} onChange={(e) => setIntegrations((i: any) => ({ ...i, ticketingWebhookUrl: e.target.value }))} />
-          </div>
-          <div className="md:col-span-2">
-            <Button
-              onClick={async () => {
-                await settingsUseCases.updateReports(reports);
-                await settingsUseCases.updateIntegrations(integrations);
-                setSuccess("Report e integrazioni salvati.");
-              }}
-            >
-              Salva report/integrazioni
-            </Button>
-          </div>
+        <CardHeader>
+          <CardTitle className="text-base">Matrice funzionalità premium</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {premiumFeatureList.map((entry) =>
+            entry.enabled ? (
+              <div key={entry.feature} className="rounded-xl border bg-card p-3">
+                <p className="text-sm font-semibold text-foreground">{entry.label}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Attiva nel tuo piano corrente.</p>
+              </div>
+            ) : (
+              <PremiumLockGate
+                key={entry.feature}
+                feature={entry.feature as FeatureKey}
+                compact
+                title={entry.label}
+                description={`Disponibile dal piano ${entry.required ?? "PRO"}.`}
+              >
+                <div className="rounded-xl border bg-card p-3">
+                  <p className="text-sm font-semibold text-foreground">{entry.label}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Modulo premium in anteprima.</p>
+                </div>
+              </PremiumLockGate>
+            )
+          )}
         </CardContent>
       </Card>
 

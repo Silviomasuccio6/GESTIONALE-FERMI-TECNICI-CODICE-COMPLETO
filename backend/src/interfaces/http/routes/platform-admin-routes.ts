@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { PlatformAdminController } from "../controllers/platform-admin-controller.js";
 import { requirePlatformAuth } from "../middlewares/platform-auth.js";
+import { platformAuthRateLimit } from "../middlewares/platform-auth-rate-limit.js";
 import { asyncHandler } from "./async-handler.js";
 
 export const platformAdminRoutes = (controller: PlatformAdminController) => {
   const router = Router();
 
-  router.post("/auth/login", asyncHandler(controller.login));
+  router.post("/auth/login", platformAuthRateLimit, asyncHandler(controller.login));
   router.get("/tenants", requirePlatformAuth, asyncHandler(controller.tenants));
   router.get("/users", requirePlatformAuth, asyncHandler(controller.users));
   router.get("/events/recent", requirePlatformAuth, asyncHandler(controller.recentEvents));

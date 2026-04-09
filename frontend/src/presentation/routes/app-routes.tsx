@@ -3,8 +3,9 @@ import { AppLayout } from "../components/layout/app-layout";
 import { DashboardPage } from "../pages/dashboard/dashboard-page";
 import { AcceptInvitePage } from "../pages/auth/accept-invite-page";
 import { ForgotPasswordPage } from "../pages/auth/forgot-password-page";
-import { LoginPage } from "../pages/auth/login-page";
+import { LoginPage } from "../../features/auth";
 import { ResetPasswordPage } from "../pages/auth/reset-password-page";
+import { SocialAuthCallbackPage } from "../pages/auth/social-auth-callback-page";
 import { SignupPage } from "../pages/auth/signup-page";
 import { StoppagesListPage } from "../pages/stoppages/stoppages-list-page";
 import { StoppageDetailPage } from "../pages/stoppages/stoppage-detail-page";
@@ -14,6 +15,8 @@ import { StoppagesCalendarPage } from "../pages/stoppages/stoppages-calendar-pag
 import { SitesPage } from "../pages/sites/sites-page";
 import { WorkshopsPage } from "../pages/workshops/workshops-page";
 import { VehiclesPage } from "../pages/vehicles/vehicles-page";
+import { VehicleMaintenancesPage } from "../pages/maintenances/vehicle-maintenances-page";
+import { VehicleDeadlinesPage } from "../pages/deadlines/vehicle-deadlines-page";
 import { UsersPage } from "../pages/users/users-page";
 import { StatsPage } from "../pages/stats/stats-page";
 import { ProfileSettingsPage } from "../pages/profile/profile-settings-page";
@@ -27,6 +30,7 @@ export const AppRoutes = () => (
     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
     <Route path="/reset-password" element={<ResetPasswordPage />} />
     <Route path="/accept-invite" element={<AcceptInvitePage />} />
+    <Route path="/auth/social-callback" element={<SocialAuthCallbackPage />} />
     <Route
       path="/"
       element={
@@ -46,6 +50,8 @@ export const AppRoutes = () => (
       <Route path="anagrafiche/sedi" element={<SitesPage />} />
       <Route path="anagrafiche/officine" element={<WorkshopsPage />} />
       <Route path="anagrafiche/veicoli" element={<VehiclesPage />} />
+      <Route path="anagrafiche/manutenzioni" element={<VehicleMaintenancesPage />} />
+      <Route path="anagrafiche/scadenziario" element={<VehicleDeadlinesPage />} />
       <Route path="utenti" element={<UsersPage />} />
       <Route path="profilo" element={<ProfileSettingsPage />} />
       <Route path="upgrade" element={<PlanUpgradePage />} />

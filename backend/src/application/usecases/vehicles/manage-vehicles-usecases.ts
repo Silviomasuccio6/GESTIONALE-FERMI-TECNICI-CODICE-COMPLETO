@@ -1,4 +1,5 @@
 import { PrismaVehicleRepository } from "../../../infrastructure/repositories/prisma-vehicle-repository.js";
+import { computeVehicleRevisionDueAt } from "../../services/vehicle-revision-schedule-service.js";
 import { AppError } from "../../../shared/errors/app-error.js";
 
 export class ManageVehiclesUseCases {
@@ -10,8 +11,36 @@ export class ManageVehiclesUseCases {
     return plate ? { ...input, plate } : input;
   }
 
+  private asDateOrNull(value: unknown): Date | null {
+    if (value === undefined || value === null || value === "") return null;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+    const parsed = new Date(String(value));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private applyAutomaticRevisionCycle(input: Record<string, unknown>, fallback?: Record<string, unknown>): Record<string, unknown> {
+    const registrationDateRaw =
+      input.registrationDate !== undefined ? input.registrationDate : fallback?.registrationDate;
+    const lastRevisionAtRaw = input.lastRevisionAt !== undefined ? input.lastRevisionAt : fallback?.lastRevisionAt;
+    const manualRevisionDueAtRaw =
+      input.revisionDueAt !== undefined ? input.revisionDueAt : fallback?.revisionDueAt;
+
+    const registrationDate = this.asDateOrNull(registrationDateRaw);
+    const lastRevisionAt = this.asDateOrNull(lastRevisionAtRaw);
+    const manualRevisionDueAt = this.asDateOrNull(manualRevisionDueAtRaw);
+
+    return {
+      ...input,
+      revisionDueAt: computeVehicleRevisionDueAt({
+        registrationDate,
+        lastRevisionAt,
+        manualRevisionDueAt
+      })
+    } as Record<string, unknown>;
+  }
+
   async create(tenantId: string, input: Record<string, unknown>) {
-    const normalizedInput = this.normalizePlate(input);
+    const normalizedInput = this.applyAutomaticRevisionCycle(this.normalizePlate(input));
     const plate = String(normalizedInput.plate ?? "");
     if (plate) {
       const existing = (await this.repository.findByPlate(tenantId, plate)) as any;
@@ -26,7 +55,10 @@ export class ManageVehiclesUseCases {
   }
 
   async update(tenantId: string, id: string, input: Record<string, unknown>) {
-    const normalizedInput = this.normalizePlate(input);
+    const existing = (await this.repository.findById(tenantId, id)) as Record<string, unknown> | null;
+    if (!existing) throw new AppError("Veicolo non trovato", 404, "NOT_FOUND");
+
+    const normalizedInput = this.applyAutomaticRevisionCycle(this.normalizePlate(input), existing);
     const plate = String(normalizedInput.plate ?? "");
     if (plate) {
       const existing = (await this.repository.findByPlate(tenantId, plate)) as any;

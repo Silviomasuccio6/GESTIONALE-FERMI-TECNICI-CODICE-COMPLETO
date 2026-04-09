@@ -2,14 +2,16 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { stoppagesUseCases } from "../../../application/usecases/stoppages-usecases";
+import { statsUseCases } from "../../../application/usecases/stats-usecases";
 import { stoppageStatusLabel } from "../../../domain/constants/stoppage-status";
+import { PremiumLockGate } from "../../components/common/premium-lock-gate";
 import { CardStat } from "../../components/common/table";
 import { PageHeader } from "../../components/layout/page-header";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { useAsync } from "../../hooks/use-async";
-import { statsUseCases } from "../../../application/usecases/stats-usecases";
+import { useEntitlements } from "../../hooks/use-entitlements";
 
 type TrendRange = "7d" | "15d" | "30d";
 
@@ -34,6 +36,20 @@ const trendViews = [
   }
 ] as const;
 
+const chartAxisTick = {
+  fill: "rgba(13,15,46,0.55)",
+  fontSize: 11,
+  fontFamily: "JetBrains Mono, monospace"
+};
+
+const chartTooltipStyle = {
+  background: "rgba(255,255,255,0.96)",
+  border: "1px solid rgba(99,102,241,0.2)",
+  borderRadius: 12,
+  boxShadow: "0 10px 30px rgba(99,102,241,0.16)",
+  color: "#0D0F2E"
+};
+
 const formatCurrency = (value?: number | string | null) => {
   const parsed = typeof value === "number" ? value : Number(value ?? NaN);
   if (!Number.isFinite(parsed)) return "-";
@@ -57,6 +73,8 @@ export const DashboardPage = () => {
   const [view, setView] = useState<"overview" | "operations" | "activity">("overview");
   const [trendRange, setTrendRange] = useState<TrendRange>("30d");
   const [trendIndex, setTrendIndex] = useState(0);
+  const { can, requiredPlan } = useEntitlements();
+  const canReportsAdvanced = can("reports_advanced");
 
   const { data, loading, error } = useAsync(() => statsUseCases.dashboard(), []);
   const assignments = useAsync(() => stoppagesUseCases.assignmentSuggestions(), []);
@@ -66,12 +84,19 @@ export const DashboardPage = () => {
   const variance = useAsync(() => stoppagesUseCases.costsVariance(), []);
 
   const trendStats = useAsync(() => {
+    if (!canReportsAdvanced) {
+      return Promise.resolve({
+        charts: {
+          trendStoppages: []
+        }
+      });
+    }
     const { start, end } = getRangeBounds(trendRange);
     return statsUseCases.analytics({
       dateFrom: start.toISOString(),
       dateTo: end.toISOString()
     });
-  }, [trendRange]);
+  }, [canReportsAdvanced, trendRange]);
 
   const trendData = useMemo(
     () =>
@@ -86,7 +111,7 @@ export const DashboardPage = () => {
   );
 
   const trendHasData = useMemo(
-    () => trendData.some((entry: any) => entry.opened > 0 || entry.closed > 0 || entry.reminders > 0),
+    () => trendData.length > 0,
     [trendData]
   );
 
@@ -100,7 +125,7 @@ export const DashboardPage = () => {
   if (error) return <p className="text-sm text-destructive">{error}</p>;
 
   return (
-    <section className="space-y-4">
+    <section className="dashboard-enterprise space-y-4">
       <PageHeader
         title="Dashboard"
         subtitle="Panoramica manageriale: stato generale, priorita operative e attivita recenti."
@@ -121,32 +146,56 @@ export const DashboardPage = () => {
 
       {view === "overview" ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <CardStat title="Fermi aperti" value={data.kpis.openStoppages} />
-            <CardStat title="Critici aperti" value={data.kpis.criticalOpen} />
-            <CardStat title="Overdue > 30gg" value={data.kpis.overdueOpen} />
+          <div className="g-stats-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-12">
             <CardStat
+              className="dashboard-enterprise-kpi xl:col-span-3"
+              title="Fermi aperti"
+              value={data.kpis.openStoppages}
+              extra={<p className="mt-1 text-xs text-muted-foreground">Situazioni operative attive</p>}
+            />
+            <CardStat
+              className="dashboard-enterprise-kpi xl:col-span-3"
+              title="Critici aperti"
+              value={data.kpis.criticalOpen}
+              extra={<p className="mt-1 text-xs text-muted-foreground">Priorita alta da presidiare</p>}
+            />
+            <CardStat
+              className="dashboard-enterprise-kpi xl:col-span-3"
+              title="Overdue > 30gg"
+              value={data.kpis.overdueOpen}
+              extra={<p className="mt-1 text-xs text-muted-foreground">Da riallineare con officine</p>}
+            />
+            <CardStat
+              className="dashboard-enterprise-kpi xl:col-span-3"
               title="Costo stimato cumulato"
               value={formatCurrency(costs.data?.kpis?.estimatedTotalCost)}
               valueClassName="font-semibold"
+              extra={<p className="mt-1 text-xs text-muted-foreground">Impatto economico corrente</p>}
             />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
+          <div className="g-charts-row grid gap-4 xl:grid-cols-3">
+            <Card className="saas-surface dashboard-enterprise-card xl:col-span-2">
               <CardHeader className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <CardTitle className="text-base">{activeTrendView.title}</CardTitle>
-                    <p className="mt-1 text-xs text-muted-foreground">{activeTrendView.subtitle}</p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{activeTrendView.subtitle}</p>
                   </div>
-                  <div className="flex items-center gap-1 rounded-lg border bg-muted/35 p-1">
+                  <div
+                    className={`flex items-center gap-1 rounded-xl border p-1 shadow-[0_12px_26px_-24px_rgba(15,23,42,0.4)] ${
+                      canReportsAdvanced
+                        ? "border-border/80 bg-background/70"
+                        : "border-border/70 bg-muted/40 opacity-75"
+                    }`}
+                  >
                     {rangeOptions.map((option) => (
                       <Button
                         key={option.value}
                         size="sm"
                         variant={trendRange === option.value ? "default" : "ghost"}
                         className="h-7 px-3"
+                        disabled={!canReportsAdvanced}
                         onClick={() => setTrendRange(option.value)}
                       >
                         {option.label}
@@ -156,89 +205,124 @@ export const DashboardPage = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="relative h-[320px] rounded-xl border bg-background p-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
-                    aria-label="Trend precedente"
-                    onClick={goPrevTrend}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="absolute right-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
-                    aria-label="Trend successivo"
-                    onClick={goNextTrend}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                <PremiumLockGate
+                  feature="reports_advanced"
+                  locked={!canReportsAdvanced}
+                  requiredPlanOverride={requiredPlan("reports_advanced")}
+                  title="Trend avanzati bloccati"
+                  description="Analisi aperture/chiusure e reminder disponibile dal piano PRO."
+                >
+                  <div className="saas-chart-shell relative h-[320px] rounded-xl p-2">
+                    {canReportsAdvanced ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
+                          aria-label="Trend precedente"
+                          onClick={goPrevTrend}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="absolute right-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
+                          aria-label="Trend successivo"
+                          onClick={goNextTrend}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : null}
 
-                  <div className="h-full px-9 py-1">
-                    {trendStats.loading ? (
-                      <div className="grid h-full place-items-center text-sm text-muted-foreground">Caricamento trend...</div>
-                    ) : trendStats.error ? (
-                      <div className="grid h-full place-items-center text-sm text-destructive">{trendStats.error}</div>
-                    ) : !trendHasData ? (
-                      <div className="grid h-full place-items-center rounded-lg border border-dashed text-sm text-muted-foreground">
-                        Nessun dato trend disponibile per {activeRangeLabel}.
-                      </div>
-                    ) : trendIndex === 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={trendData}>
-                          <XAxis dataKey="day" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="opened" stroke="#2563eb" strokeWidth={2} name="Aperti" />
-                          <Line type="monotone" dataKey="closed" stroke="#059669" strokeWidth={2} name="Chiusi" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    ) : trendIndex === 1 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={trendData}>
-                          <XAxis dataKey="day" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="reminders" name="Reminder" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={trendData}>
-                          <XAxis dataKey="day" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="balance" stroke="#d97706" strokeWidth={2} name="Saldo" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    )}
+                    <div className="h-full px-9 py-1">
+                      {!canReportsAdvanced ? (
+                        <div className="relative grid h-full place-items-center rounded-lg border border-dashed border-border/75 bg-gradient-to-b from-muted/30 to-muted/10">
+                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_85%,rgba(99,102,241,0.1),transparent_40%)]" />
+                          <p className="text-xs font-medium text-slate-500 dark:text-slate-300">Trend disponibile dal piano PRO</p>
+                        </div>
+                      ) : trendStats.loading ? (
+                        <div className="grid h-full place-items-center text-sm text-muted-foreground">Caricamento trend...</div>
+                      ) : trendStats.error ? (
+                        <div className="grid h-full place-items-center text-sm text-destructive">{trendStats.error}</div>
+                      ) : !trendHasData ? (
+                        <div className="grid h-full place-items-center rounded-lg border border-dashed text-sm text-muted-foreground">
+                          Nessun dato trend disponibile per {activeRangeLabel}.
+                        </div>
+                      ) : trendIndex === 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={trendData}>
+                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
+                            <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
+                            <Tooltip
+                              cursor={false}
+                              isAnimationActive={false}
+                              wrapperStyle={{ pointerEvents: "none" }}
+                              contentStyle={chartTooltipStyle}
+                              labelStyle={{ color: "rgba(13,15,46,0.56)" }}
+                            />
+                            <Line type="monotone" dataKey="opened" stroke="#2563eb" strokeWidth={2} name="Aperti" />
+                            <Line type="monotone" dataKey="closed" stroke="#059669" strokeWidth={2} name="Chiusi" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : trendIndex === 1 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={trendData}>
+                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
+                            <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
+                            <Tooltip
+                              cursor={false}
+                              isAnimationActive={false}
+                              wrapperStyle={{ pointerEvents: "none" }}
+                              contentStyle={chartTooltipStyle}
+                              labelStyle={{ color: "rgba(13,15,46,0.56)" }}
+                            />
+                            <Bar dataKey="reminders" name="Reminder" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={trendData}>
+                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
+                            <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
+                            <Tooltip
+                              cursor={false}
+                              isAnimationActive={false}
+                              wrapperStyle={{ pointerEvents: "none" }}
+                              contentStyle={chartTooltipStyle}
+                              labelStyle={{ color: "rgba(13,15,46,0.56)" }}
+                            />
+                            <Line type="monotone" dataKey="balance" stroke="#d97706" strokeWidth={2} name="Saldo" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-3 flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Trend {trendIndex + 1}/3 · Range {activeRangeLabel}
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    {trendViews.map((_, idx) => (
-                      <button
-                        key={`trend-dot-${idx}`}
-                        type="button"
-                        onClick={() => setTrendIndex(idx)}
-                        aria-label={`Vai al trend ${idx + 1}`}
-                        className={`h-2.5 w-2.5 rounded-full transition ${idx === trendIndex ? "bg-primary" : "bg-muted"}`}
-                      />
-                    ))}
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Trend {trendIndex + 1}/3 · Range {activeRangeLabel}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      {trendViews.map((_, idx) => (
+                        <button
+                          key={`trend-dot-${idx}`}
+                          type="button"
+                          onClick={() => setTrendIndex(idx)}
+                          aria-label={`Vai al trend ${idx + 1}`}
+                          className={`h-2.5 w-2.5 rounded-full transition ${idx === trendIndex ? "bg-primary" : "bg-muted"}`}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </PremiumLockGate>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="saas-surface dashboard-enterprise-card">
               <CardHeader>
                 <CardTitle className="text-base">Alert prioritari</CardTitle>
               </CardHeader>
@@ -247,7 +331,7 @@ export const DashboardPage = () => {
                   <p className="text-sm text-muted-foreground">Nessun alert prioritario.</p>
                 ) : (
                   data.feeds.alerts.slice(0, 6).map((alert: any) => (
-                    <div key={alert.id} className="rounded-lg border p-2">
+                    <div key={alert.id} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <p className="text-sm font-medium">{alert.message}</p>
                         <Badge variant={alert.severity === "HIGH" ? "destructive" : alert.severity === "MEDIUM" ? "warning" : "secondary"}>
@@ -267,20 +351,20 @@ export const DashboardPage = () => {
       {view === "operations" ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <CardStat title="Totale fermi" value={data.kpis.totalStoppages} />
-            <CardStat title="Nuovi fermi (30gg)" value={data.kpis.newStoppagesLast30} />
-            <CardStat title="Chiusi (30gg)" value={data.kpis.closedLast30} />
-            <CardStat title="Durata media chiusura" value={`${data.kpis.averageClosureDays} gg`} />
-            <CardStat title="Escalation L3" value={escalations.data?.kpis?.level3 ?? 0} />
-            <CardStat title="Preventiva gg in scadenza" value={preventive.data?.kpis?.dueSoonDays ?? 0} />
-            <CardStat title="Preventiva gg scaduta" value={preventive.data?.kpis?.dueNowDays ?? 0} />
-            <CardStat title="Preventiva km in scadenza" value={preventive.data?.kpis?.dueSoonKm ?? 0} />
-            <CardStat title="Preventiva km scaduta" value={preventive.data?.kpis?.dueNowKm ?? 0} />
-            <CardStat title="Scostamento costi" value={`EUR ${variance.data?.kpis?.varianceTotal ?? 0}`} />
+            <CardStat className="dashboard-enterprise-kpi" title="Totale fermi" value={data.kpis.totalStoppages} />
+            <CardStat className="dashboard-enterprise-kpi" title="Nuovi fermi (30gg)" value={data.kpis.newStoppagesLast30} />
+            <CardStat className="dashboard-enterprise-kpi" title="Chiusi (30gg)" value={data.kpis.closedLast30} />
+            <CardStat className="dashboard-enterprise-kpi" title="Durata media chiusura" value={`${data.kpis.averageClosureDays} gg`} />
+            <CardStat className="dashboard-enterprise-kpi" title="Escalation L3" value={escalations.data?.kpis?.level3 ?? 0} />
+            <CardStat className="dashboard-enterprise-kpi" title="Preventiva gg in scadenza" value={preventive.data?.kpis?.dueSoonDays ?? 0} />
+            <CardStat className="dashboard-enterprise-kpi" title="Preventiva gg scaduta" value={preventive.data?.kpis?.dueNowDays ?? 0} />
+            <CardStat className="dashboard-enterprise-kpi" title="Preventiva km in scadenza" value={preventive.data?.kpis?.dueSoonKm ?? 0} />
+            <CardStat className="dashboard-enterprise-kpi" title="Preventiva km scaduta" value={preventive.data?.kpis?.dueNowKm ?? 0} />
+            <CardStat className="dashboard-enterprise-kpi" title="Scostamento costi" value={`EUR ${variance.data?.kpis?.varianceTotal ?? 0}`} />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
+          <div className="g-charts-row grid gap-4 xl:grid-cols-3">
+            <Card className="saas-surface dashboard-enterprise-card xl:col-span-2">
               <CardHeader>
                 <CardTitle className="text-base">Distribuzione stati fermi</CardTitle>
               </CardHeader>
@@ -288,9 +372,15 @@ export const DashboardPage = () => {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.charts.byStatus.map((x: any) => ({ ...x, status: stoppageStatusLabel[x.status] ?? x.status }))}>
-                      <XAxis dataKey="status" />
-                      <YAxis />
-                      <Tooltip />
+                      <XAxis dataKey="status" axisLine={false} tickLine={false} tick={chartAxisTick} />
+                      <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
+                      <Tooltip
+                        cursor={false}
+                        isAnimationActive={false}
+                        wrapperStyle={{ pointerEvents: "none" }}
+                        contentStyle={chartTooltipStyle}
+                        labelStyle={{ color: "rgba(13,15,46,0.56)" }}
+                      />
                       <Bar dataKey="count" fill="#2563eb" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -298,13 +388,13 @@ export const DashboardPage = () => {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="saas-surface dashboard-enterprise-card">
               <CardHeader>
                 <CardTitle className="text-base">Suggerimenti assegnazione</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {(assignments.data?.suggestions ?? []).map((item: any) => (
-                  <div key={item.userId} className="rounded-lg border p-2">
+                  <div key={item.userId} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
                     <p className="text-sm font-medium">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{item.email}</p>
                     <p className="text-xs text-muted-foreground">Carico: {item.assignedCount} fermi · peso {item.weightedLoad}</p>
@@ -318,13 +408,13 @@ export const DashboardPage = () => {
 
       {view === "activity" ? (
         <div className="grid gap-4 xl:grid-cols-3">
-          <Card>
+          <Card className="saas-surface dashboard-enterprise-card">
             <CardHeader>
               <CardTitle className="text-base">Ultimi utenti iscritti</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {data.feeds.recentUsers.map((user: any) => (
-                <div key={user.id} className="rounded-lg border p-2">
+                <div key={user.id} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
                   <p className="text-sm font-medium">{user.firstName} {user.lastName}</p>
                   <p className="text-xs text-muted-foreground">{user.email}</p>
                 </div>
@@ -332,13 +422,13 @@ export const DashboardPage = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="saas-surface dashboard-enterprise-card">
             <CardHeader>
               <CardTitle className="text-base">Ultimi fermi creati</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {data.feeds.recentStoppages.map((row: any) => (
-                <div key={row.id} className="rounded-lg border p-2">
+                <div key={row.id} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
                   <p className="text-sm font-medium">{row.plate} · {row.brand} {row.model}</p>
                   <p className="text-xs text-muted-foreground">{row.site} · {row.workshop}</p>
                   <p className="text-xs text-muted-foreground">{row.reason}</p>
@@ -347,13 +437,13 @@ export const DashboardPage = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="saas-surface dashboard-enterprise-card">
             <CardHeader>
               <CardTitle className="text-base">Ultimi reminder inviati</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {data.feeds.recentReminders.map((reminder: any) => (
-                <div key={reminder.id} className="rounded-lg border p-2">
+                <div key={reminder.id} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <p className="text-sm font-medium">{reminder.plate}</p>
                     <Badge variant={reminder.success ? "success" : "destructive"}>{reminder.success ? "OK" : "KO"}</Badge>

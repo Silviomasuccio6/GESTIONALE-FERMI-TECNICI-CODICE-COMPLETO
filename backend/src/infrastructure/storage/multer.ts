@@ -9,22 +9,51 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-const allowedMime = new Set(["image/jpeg", "image/png", "image/webp"]);
+const createDiskUpload = (allowedMime: Set<string>, limits: { fileSize: number; files: number }) =>
+  multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, uploadDir),
+      filename: (_req, file, cb) => {
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+        cb(null, `${Date.now()}-${safeName}`);
+      }
+    }),
+    limits,
+    fileFilter: (_req, file, cb) => {
+      if (!allowedMime.has(file.mimetype)) {
+        cb(new AppError("Tipo file non supportato", 400));
+        return;
+      }
+      cb(null, true);
+    }
+  });
 
-export const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadDir),
-    filename: (_req, file, cb) => {
-      const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-      cb(null, `${Date.now()}-${safeName}`);
-    }
-  }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 8 },
-  fileFilter: (_req, file, cb) => {
-    if (!allowedMime.has(file.mimetype)) {
-      cb(new AppError("Tipo file non supportato", 400));
-      return;
-    }
-    cb(null, true);
-  }
+const allowedImageMime = new Set(["image/jpeg", "image/png", "image/webp"]);
+const allowedMaintenanceAttachmentMime = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+]);
+const allowedVehicleBookletMime = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf"
+]);
+
+export const upload = createDiskUpload(allowedImageMime, { fileSize: 5 * 1024 * 1024, files: 8 });
+export const uploadMaintenanceAttachments = createDiskUpload(allowedMaintenanceAttachmentMime, {
+  fileSize: 12 * 1024 * 1024,
+  files: 10
+});
+export const uploadVehicleBooklet = createDiskUpload(allowedVehicleBookletMime, {
+  fileSize: 12 * 1024 * 1024,
+  files: 1
 });

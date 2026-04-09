@@ -14,7 +14,11 @@ export class AuditController {
   exportCsv = async (req: Request, res: Response) => {
     const rows = await this.auditService.exportRows(req.auth!.tenantId, 5000);
     const headers = ["createdAt", "action", "resource", "resourceId", "userId", "details"];
-    const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, "\"\"")}"`;
+    const escape = (v: unknown) => {
+      const raw = String(v ?? "");
+      const formulaSafe = /^[\s]*[=+\-@]/.test(raw) ? `'${raw}` : raw;
+      return `"${formulaSafe.replace(/"/g, "\"\"")}"`;
+    };
     const body = rows
       .map((r) => [r.createdAt.toISOString(), r.action, r.resource, r.resourceId ?? "", r.userId ?? "", JSON.stringify(r.details ?? {})].map(escape).join(","))
       .join("\n");

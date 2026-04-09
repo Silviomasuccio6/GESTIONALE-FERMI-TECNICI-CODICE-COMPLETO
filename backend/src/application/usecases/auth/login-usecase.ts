@@ -38,6 +38,35 @@ export class LoginUseCase {
     }
 
     const user = await this.userRepository.findById(matchingUserIds[0]);
+    return this.issueSessionForUser(user?.id ?? "", context);
+  }
+
+  async executeTrustedEmail(email: string, context?: { userAgent?: string; ipAddress?: string }) {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) throw new AppError("Email provider non valida", 400, "INVALID_SOCIAL_EMAIL");
+
+    const candidates = await prisma.user.findMany({
+      where: { email: normalized, deletedAt: null },
+      select: { id: true }
+    });
+
+    if (candidates.length === 0) {
+      throw new AppError("Nessun utente associato a questo account social. Crea prima un account.", 404, "SOCIAL_USER_NOT_FOUND");
+    }
+
+    if (candidates.length > 1) {
+      throw new AppError(
+        "Email associata a più tenant. Accedi con email/password o contatta il supporto.",
+        409,
+        "AMBIGUOUS_LOGIN"
+      );
+    }
+
+    return this.issueSessionForUser(candidates[0].id, context);
+  }
+
+  private async issueSessionForUser(userId: string, context?: { userAgent?: string; ipAddress?: string }) {
+    const user = await this.userRepository.findById(userId);
     if (!user) throw new AppError("Utente non trovato", 404, "NOT_FOUND");
     if (user.status !== "ACTIVE") throw new AppError("Utente non attivo", 403, "FORBIDDEN");
     const access = await this.licensePolicyService.evaluateAccess(user.tenantId);

@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { env } from "../../../shared/config/env.js";
 import { AppError } from "../../../shared/errors/app-error.js";
 import { JwtPayload } from "../../../shared/types/auth.js";
+import { ACCESS_COOKIE_NAME, getCookieValue } from "../utils/auth-cookies.js";
 
 declare global {
   namespace Express {
@@ -14,10 +15,9 @@ declare global {
 
 export const requireAuth = (req: Request, _res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
-  const allowQueryToken = req.method === "GET" && req.path.endsWith("/notifications/stream");
-  const tokenFromQuery =
-    allowQueryToken && typeof req.query.access_token === "string" ? req.query.access_token : undefined;
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : tokenFromQuery;
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+  const cookieToken = getCookieValue(req, ACCESS_COOKIE_NAME);
+  const token = bearerToken || cookieToken;
 
   if (!token) throw new AppError("Token mancante", 401, "UNAUTHORIZED");
 

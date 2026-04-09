@@ -10,3 +10,6 @@ backend/uploads
 frontend/dist
 backend/dist
 *.log
+backups/
+backend/.env
+frontend/.env
