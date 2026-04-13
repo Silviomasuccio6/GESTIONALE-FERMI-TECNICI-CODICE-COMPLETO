@@ -69,8 +69,27 @@ const startOfQuarter = (date: Date) => {
   return new Date(date.getFullYear(), quarterStartMonth, 1);
 };
 
-const toIsoStart = (dateInput: string) => new Date(`${dateInput}T00:00:00`).toISOString();
-const toIsoEnd = (dateInput: string) => new Date(`${dateInput}T23:59:59`).toISOString();
+const parseInputDateAsUtc = (dateInput: string, endOfDay = false) => {
+  const [yearRaw, monthRaw, dayRaw] = dateInput.split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return new Date(NaN);
+  return new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day,
+      endOfDay ? 23 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 999 : 0
+    )
+  );
+};
+
+const toIsoStart = (dateInput: string) => parseInputDateAsUtc(dateInput, false).toISOString();
+const toIsoEnd = (dateInput: string) => parseInputDateAsUtc(dateInput, true).toISOString();
 
 const toPercent = (current: number, previous: number) => {
   if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
@@ -172,8 +191,8 @@ export const StatsPage = () => {
   );
 
   const previousPeriod = useMemo(() => {
-    const start = new Date(`${filters.dateFrom}T00:00:00`);
-    const end = new Date(`${filters.dateTo}T23:59:59`);
+    const start = parseInputDateAsUtc(filters.dateFrom, false);
+    const end = parseInputDateAsUtc(filters.dateTo, true);
     const spanMs = Math.max(1, end.getTime() - start.getTime() + 1);
     const previousEnd = new Date(start.getTime() - 1);
     const previousStart = new Date(previousEnd.getTime() - spanMs + 1);

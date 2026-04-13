@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { stoppagesUseCases } from "../../../application/usecases/stoppages-usecases";
 import { statsUseCases } from "../../../application/usecases/stats-usecases";
 import { stoppageStatusLabel } from "../../../domain/constants/stoppage-status";
@@ -58,13 +58,9 @@ const formatCurrency = (value?: number | string | null) => {
 
 const getRangeBounds = (range: TrendRange) => {
   const today = new Date();
-  const end = new Date(today);
-  end.setHours(23, 59, 59, 999);
-
-  const start = new Date(today);
   const days = rangeOptions.find((entry) => entry.value === range)?.days ?? 30;
-  start.setDate(start.getDate() - (days - 1));
-  start.setHours(0, 0, 0, 0);
+  const start = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() - (days - 1), 0, 0, 0, 0));
+  const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999));
 
   return { start, end };
 };
@@ -73,15 +69,25 @@ export const DashboardPage = () => {
   const [view, setView] = useState<"overview" | "operations" | "activity">("overview");
   const [trendRange, setTrendRange] = useState<TrendRange>("30d");
   const [trendIndex, setTrendIndex] = useState(0);
+  const [trendLegendFocus, setTrendLegendFocus] = useState<"opened" | "closed" | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
   const { can, requiredPlan } = useEntitlements();
   const canReportsAdvanced = can("reports_advanced");
 
-  const { data, loading, error } = useAsync(() => statsUseCases.dashboard(), []);
-  const assignments = useAsync(() => stoppagesUseCases.assignmentSuggestions(), []);
-  const costs = useAsync(() => stoppagesUseCases.costsSummary(), []);
-  const escalations = useAsync(() => stoppagesUseCases.slaEscalations(), []);
-  const preventive = useAsync(() => stoppagesUseCases.preventiveDue({ intervalDays: 180 }), []);
-  const variance = useAsync(() => stoppagesUseCases.costsVariance(), []);
+  useEffect(() => {
+    const onFocus = () => setRefreshTick((value) => value + 1);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  const { data, loading, error } = useAsync(() => statsUseCases.dashboard(), [refreshTick]);
+  const assignments = useAsync(() => stoppagesUseCases.assignmentSuggestions(), [refreshTick]);
+  const costs = useAsync(() => stoppagesUseCases.costsSummary(), [refreshTick]);
+  const escalations = useAsync(() => stoppagesUseCases.slaEscalations(), [refreshTick]);
+  const preventive = useAsync(() => stoppagesUseCases.preventiveDue({ intervalDays: 180 }), [refreshTick]);
+  const variance = useAsync(() => stoppagesUseCases.costsVariance(), [refreshTick]);
 
   const trendStats = useAsync(() => {
     if (!canReportsAdvanced) {
@@ -96,7 +102,7 @@ export const DashboardPage = () => {
       dateFrom: start.toISOString(),
       dateTo: end.toISOString()
     });
-  }, [canReportsAdvanced, trendRange]);
+  }, [canReportsAdvanced, trendRange, refreshTick]);
 
   const trendData = useMemo(
     () =>
@@ -120,9 +126,17 @@ export const DashboardPage = () => {
 
   const goPrevTrend = () => setTrendIndex((prev) => (prev - 1 + trendViews.length) % trendViews.length);
   const goNextTrend = () => setTrendIndex((prev) => (prev + 1) % trendViews.length);
+  const getSeriesOpacity = (series: "opened" | "closed") => (!trendLegendFocus || trendLegendFocus === series ? 1 : 0.18);
 
-  if (loading) return <p className="text-sm text-muted-foreground">Caricamento...</p>;
-  if (error) return <p className="text-sm text-destructive">{error}</p>;
+  const handleTrendLegendEnter = (entry: unknown) => {
+    const dataKey = typeof entry === "object" && entry !== null && "dataKey" in entry ? (entry as { dataKey?: unknown }).dataKey : null;
+    if (dataKey === "opened" || dataKey === "closed") setTrendLegendFocus(dataKey);
+  };
+
+  const handleTrendLegendLeave = () => setTrendLegendFocus(null);
+
+  if (loading && !data) return <p className="text-sm text-muted-foreground">Caricamento...</p>;
+  if (error && !data) return <p className="text-sm text-destructive">{error}</p>;
 
   return (
     <section className="dashboard-enterprise space-y-4">
@@ -148,29 +162,43 @@ export const DashboardPage = () => {
         <>
           <div className="g-stats-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-12">
             <CardStat
-              className="dashboard-enterprise-kpi xl:col-span-3"
+              className="dashboard-enterprise-kpi xl:col-span-2"
               title="Fermi aperti"
               value={data.kpis.openStoppages}
               extra={<p className="mt-1 text-xs text-muted-foreground">Situazioni operative attive</p>}
             />
             <CardStat
-              className="dashboard-enterprise-kpi xl:col-span-3"
+              className="dashboard-enterprise-kpi xl:col-span-2"
               title="Critici aperti"
               value={data.kpis.criticalOpen}
               extra={<p className="mt-1 text-xs text-muted-foreground">Priorita alta da presidiare</p>}
             />
             <CardStat
-              className="dashboard-enterprise-kpi xl:col-span-3"
+              className="dashboard-enterprise-kpi xl:col-span-2"
               title="Overdue > 30gg"
               value={data.kpis.overdueOpen}
               extra={<p className="mt-1 text-xs text-muted-foreground">Da riallineare con officine</p>}
             />
             <CardStat
-              className="dashboard-enterprise-kpi xl:col-span-3"
+              className="dashboard-enterprise-kpi xl:col-span-2"
               title="Costo stimato cumulato"
               value={formatCurrency(costs.data?.kpis?.estimatedTotalCost)}
               valueClassName="font-semibold"
               extra={<p className="mt-1 text-xs text-muted-foreground">Impatto economico corrente</p>}
+            />
+            <CardStat
+              className="dashboard-enterprise-kpi xl:col-span-2"
+              title="Costo medio / giorno fermo"
+              value={formatCurrency(costs.data?.kpis?.avgCostPerOpenDay)}
+              valueClassName="font-semibold"
+              extra={<p className="mt-1 text-xs text-muted-foreground">KPI efficienza operativa</p>}
+            />
+            <CardStat
+              className="dashboard-enterprise-kpi xl:col-span-2"
+              title="Costo stimato / km"
+              value={costs.data?.kpis?.estimatedCostPerKm ? `${Number(costs.data.kpis.estimatedCostPerKm).toLocaleString("it-IT", { maximumFractionDigits: 4 })} €/km` : "-"}
+              valueClassName="font-semibold"
+              extra={<p className="mt-1 text-xs text-muted-foreground">Benchmark economico flotta</p>}
             />
           </div>
 
@@ -255,8 +283,17 @@ export const DashboardPage = () => {
                       ) : trendIndex === 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={trendData}>
+                            <CartesianGrid strokeDasharray="4 4" stroke="rgba(99,102,241,0.12)" />
                             <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
                             <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
+                            <Legend
+                              verticalAlign="top"
+                              align="left"
+                              iconType="circle"
+                              wrapperStyle={{ paddingBottom: 8 }}
+                              onMouseEnter={handleTrendLegendEnter}
+                              onMouseLeave={handleTrendLegendLeave}
+                            />
                             <Tooltip
                               cursor={false}
                               isAnimationActive={false}
@@ -264,8 +301,26 @@ export const DashboardPage = () => {
                               contentStyle={chartTooltipStyle}
                               labelStyle={{ color: "rgba(13,15,46,0.56)" }}
                             />
-                            <Line type="monotone" dataKey="opened" stroke="#2563eb" strokeWidth={2} name="Aperti" />
-                            <Line type="monotone" dataKey="closed" stroke="#059669" strokeWidth={2} name="Chiusi" />
+                            <Line
+                              type="monotone"
+                              dataKey="opened"
+                              stroke="#2563eb"
+                              strokeWidth={trendLegendFocus === "opened" ? 3 : 2}
+                              strokeOpacity={getSeriesOpacity("opened")}
+                              dot={{ r: 2.5, strokeWidth: 1.2, fill: "#f8fafc", stroke: "#2563eb" }}
+                              activeDot={{ r: 4.5, strokeWidth: 1.6, fill: "#ffffff", stroke: "#2563eb" }}
+                              name="Aperture fermi"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="closed"
+                              stroke="#059669"
+                              strokeWidth={trendLegendFocus === "closed" ? 3 : 2}
+                              strokeOpacity={getSeriesOpacity("closed")}
+                              dot={{ r: 2.5, strokeWidth: 1.2, fill: "#f8fafc", stroke: "#059669" }}
+                              activeDot={{ r: 4.5, strokeWidth: 1.6, fill: "#ffffff", stroke: "#059669" }}
+                              name="Chiusure fermi"
+                            />
                           </LineChart>
                         </ResponsiveContainer>
                       ) : trendIndex === 1 ? (
@@ -359,6 +414,7 @@ export const DashboardPage = () => {
             <CardStat className="dashboard-enterprise-kpi" title="Preventiva gg in scadenza" value={preventive.data?.kpis?.dueSoonDays ?? 0} />
             <CardStat className="dashboard-enterprise-kpi" title="Preventiva gg scaduta" value={preventive.data?.kpis?.dueNowDays ?? 0} />
             <CardStat className="dashboard-enterprise-kpi" title="Preventiva km in scadenza" value={preventive.data?.kpis?.dueSoonKm ?? 0} />
+            <CardStat className="dashboard-enterprise-kpi" title="Preventiva km forecast 30gg" value={preventive.data?.kpis?.dueSoonKmForecast30d ?? 0} />
             <CardStat className="dashboard-enterprise-kpi" title="Preventiva km scaduta" value={preventive.data?.kpis?.dueNowKm ?? 0} />
             <CardStat className="dashboard-enterprise-kpi" title="Scostamento costi" value={`EUR ${variance.data?.kpis?.varianceTotal ?? 0}`} />
           </div>

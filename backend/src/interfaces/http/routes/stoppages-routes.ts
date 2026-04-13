@@ -26,6 +26,7 @@ export const stoppagesRoutes = (controller: StoppagesController, requireFeature:
   router.post("/", requirePermissions("stoppages:write"), asyncHandler(controller.create));
   router.get("/:id", requirePermissions("stoppages:read"), asyncHandler(controller.getById));
   router.get("/:id/events", requirePermissions("stoppages:read"), asyncHandler(controller.listEvents));
+  router.post("/:id/updates", requirePermissions("stoppages:write"), asyncHandler(controller.addOperationalUpdate));
   router.get("/:id/parts-orders", requirePermissions("stoppages:read"), asyncHandler(controller.listPartsOrders));
   router.post("/:id/parts-orders", requirePermissions("stoppages:write"), asyncHandler(controller.addPartsOrder));
   router.get("/:id/cost-approvals", requirePermissions("stoppages:read"), asyncHandler(controller.listCostApprovals));

@@ -50,6 +50,7 @@ export const stoppagesUseCases = {
   slaEscalations: () => httpClient.get<{ kpis: any; data: any[] }>("/stoppages/sla/escalations"),
   preventiveDue: (params?: Record<string, string | number | undefined>) => httpClient.get<{ kpis: any; data: any[] }>("/stoppages/preventive/due", params),
   events: (id: string) => httpClient.get<{ data: any[] }>(`/stoppages/${id}/events`),
+  addOperationalUpdate: (id: string, message: string) => httpClient.post(`/stoppages/${id}/updates`, { message }),
   workflowTransition: (id: string, input: { toStatus: "OPEN" | "IN_PROGRESS" | "WAITING_PARTS" | "SOLICITED" | "CLOSED" | "CANCELED"; note?: string; closureSummary?: string }) =>
     httpClient.post(`/stoppages/${id}/workflow/transition`, input),
   reminderTemplatePreview: (id: string, channel: "EMAIL" | "WHATSAPP" = "EMAIL") =>

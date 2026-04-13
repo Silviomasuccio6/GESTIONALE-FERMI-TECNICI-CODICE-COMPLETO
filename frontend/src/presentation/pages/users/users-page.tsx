@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useAuthStore } from "../../../application/stores/auth-store";
 import { usersUseCases } from "../../../application/usecases/users-usecases";
 import { PageHeader } from "../../components/layout/page-header";
 import { Button } from "../../components/ui/button";
@@ -22,11 +23,42 @@ const statoLabel: Record<string, string> = {
 };
 
 export const UsersPage = () => {
+  const actorRoles = useAuthStore((state) => state.user?.roles ?? []);
+  const actorPermissions = useAuthStore((state) => state.user?.permissions ?? []);
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<Array<"ADMIN" | "MANAGER" | "OPERATOR" | "VIEWER">>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const roleRank: Record<string, number> = {
+    ADMIN: 4,
+    MANAGER: 3,
+    OPERATOR: 2,
+    VIEWER: 1
+  };
+
+  const actorPrimaryRole = useMemo(() => {
+    if (actorRoles.includes("ADMIN")) return "ADMIN";
+    if (actorRoles.includes("MANAGER")) return "MANAGER";
+    if (actorRoles.includes("OPERATOR")) return "OPERATOR";
+    return "VIEWER";
+  }, [actorRoles]);
+
+  const managedRoles = useMemo(
+    () =>
+      roles.filter((role) =>
+        actorPrimaryRole === "ADMIN"
+          ? true
+          : actorPrimaryRole === "MANAGER"
+            ? role === "OPERATOR" || role === "VIEWER"
+            : false
+      ),
+    [actorPrimaryRole, roles]
+  );
+
+  const canSuspendUsers = actorPrimaryRole === "ADMIN";
+  const canWriteUsers = actorPermissions.includes("users:write");
 
   const loadData = async () => {
     setLoading(true);
@@ -136,6 +168,7 @@ export const UsersPage = () => {
         subtitle="Gestione completa degli utenti interni: creazione, invito, ruolo, stato e disattivazione."
       />
 
+      {canWriteUsers ? (
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Nuovo utente</CardTitle>
@@ -160,8 +193,8 @@ export const UsersPage = () => {
             </div>
             <div className="grid gap-1.5">
               <Label>Ruolo</Label>
-              <Select name="roleKey" defaultValue={roles[0] ?? "OPERATOR"}>
-                {roles.map((role) => (
+              <Select name="roleKey" defaultValue={managedRoles[0] ?? "OPERATOR"}>
+                {managedRoles.map((role) => (
                   <option key={role} value={role}>{ruoloLabel[role]}</option>
                 ))}
               </Select>
@@ -174,7 +207,9 @@ export const UsersPage = () => {
           {success && <p className="mt-3 text-sm text-emerald-700">{success}</p>}
         </CardContent>
       </Card>
+      ) : null}
 
+      {canWriteUsers ? (
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Invita utente</CardTitle>
@@ -195,8 +230,8 @@ export const UsersPage = () => {
             </div>
             <div className="grid gap-1.5">
               <Label>Ruolo</Label>
-              <Select name="inviteRoleKey" defaultValue={roles[0] ?? "OPERATOR"}>
-                {roles.map((role) => (
+              <Select name="inviteRoleKey" defaultValue={managedRoles[0] ?? "OPERATOR"}>
+                {managedRoles.map((role) => (
                   <option key={role} value={role}>{ruoloLabel[role]}</option>
                 ))}
               </Select>
@@ -207,6 +242,7 @@ export const UsersPage = () => {
           </form>
         </CardContent>
       </Card>
+      ) : null}
 
       <Card className="shadow-sm">
         <CardHeader>
@@ -216,22 +252,25 @@ export const UsersPage = () => {
           <div className="space-y-3 md:hidden">
             {users.map((user) => {
               const role = user.roles?.[0] ?? "OPERATOR";
+              const targetRank = roleRank[role] ?? 1;
+              const actorRank = roleRank[actorPrimaryRole] ?? 0;
+              const canManageTarget = canWriteUsers && (actorPrimaryRole === "ADMIN" || targetRank < actorRank);
               return (
                 <Card key={user.id} className="border-dashed">
                   <CardContent className="space-y-2 pt-4">
                     <p className="text-sm font-medium">{user.firstName} {user.lastName}</p>
                     <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <Select value={role} onChange={(e) => onRoleChange(user.id, e.target.value as any)}>
-                      {roles.map((r) => (
+                    <Select disabled={!canManageTarget} value={role} onChange={(e) => onRoleChange(user.id, e.target.value as any)}>
+                      {managedRoles.map((r) => (
                         <option key={r} value={r}>{ruoloLabel[r]}</option>
                       ))}
                     </Select>
-                    <Select value={user.status} onChange={(e) => onStatusChange(user.id, e.target.value as any)}>
+                    <Select disabled={!canManageTarget} value={user.status} onChange={(e) => onStatusChange(user.id, e.target.value as any)}>
                       <option value="ACTIVE">{statoLabel.ACTIVE}</option>
                       <option value="INVITED">{statoLabel.INVITED}</option>
-                      <option value="SUSPENDED">{statoLabel.SUSPENDED}</option>
+                      {canSuspendUsers ? <option value="SUSPENDED">{statoLabel.SUSPENDED}</option> : null}
                     </Select>
-                    <Button variant="destructive" size="sm" onClick={() => onDelete(user.id)}>Disattiva</Button>
+                    <Button variant="destructive" size="sm" disabled={!canManageTarget} onClick={() => onDelete(user.id)}>Disattiva</Button>
                   </CardContent>
                 </Card>
               );
@@ -252,26 +291,47 @@ export const UsersPage = () => {
               <TableBody>
                 {users.map((user) => {
                   const role = user.roles?.[0] ?? "OPERATOR";
+                  const targetRank = roleRank[role] ?? 1;
+                  const actorRank = roleRank[actorPrimaryRole] ?? 0;
+                  const canManageTarget = canWriteUsers && (actorPrimaryRole === "ADMIN" || targetRank < actorRank);
                   return (
                     <TableRow key={user.id}>
                       <TableCell className="text-xs font-medium">{user.firstName} {user.lastName}</TableCell>
                       <TableCell className="text-xs">{user.email}</TableCell>
                       <TableCell>
-                        <Select className="h-7 text-[11px]" value={role} onChange={(e) => onRoleChange(user.id, e.target.value as any)}>
-                          {roles.map((r) => (
+                        <Select
+                          className="h-7 text-[11px]"
+                          disabled={!canManageTarget}
+                          value={role}
+                          onChange={(e) => onRoleChange(user.id, e.target.value as any)}
+                        >
+                          {managedRoles.map((r) => (
                             <option key={r} value={r}>{ruoloLabel[r]}</option>
                           ))}
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Select className="h-7 text-[11px]" value={user.status} onChange={(e) => onStatusChange(user.id, e.target.value as any)}>
+                        <Select
+                          className="h-7 text-[11px]"
+                          disabled={!canManageTarget}
+                          value={user.status}
+                          onChange={(e) => onStatusChange(user.id, e.target.value as any)}
+                        >
                           <option value="ACTIVE">{statoLabel.ACTIVE}</option>
                           <option value="INVITED">{statoLabel.INVITED}</option>
-                          <option value="SUSPENDED">{statoLabel.SUSPENDED}</option>
+                          {canSuspendUsers ? <option value="SUSPENDED">{statoLabel.SUSPENDED}</option> : null}
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Button variant="destructive" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onDelete(user.id)}>Disattiva</Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          disabled={!canManageTarget}
+                          onClick={() => onDelete(user.id)}
+                        >
+                          Disattiva
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );

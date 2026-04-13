@@ -2,9 +2,26 @@ export type ThemeMode = "light" | "dark";
 
 const themeStorageKey = "fermi_theme_mode";
 
+const safeGetStorage = (): Storage | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+};
+
 export const getStoredTheme = (): ThemeMode => {
   if (typeof window === "undefined") return "light";
-  const stored = localStorage.getItem(themeStorageKey);
+  const stored = (() => {
+    const storage = safeGetStorage();
+    if (!storage) return null;
+    try {
+      return storage.getItem(themeStorageKey);
+    } catch {
+      return null;
+    }
+  })();
   if (stored === "dark" || stored === "light") return stored;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 };
@@ -15,8 +32,13 @@ export const applyTheme = (theme: ThemeMode) => {
 };
 
 export const setTheme = (theme: ThemeMode) => {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(themeStorageKey, theme);
+  const storage = safeGetStorage();
+  if (storage) {
+    try {
+      storage.setItem(themeStorageKey, theme);
+    } catch {
+      // Ignore storage failures and still apply theme in memory.
+    }
   }
   applyTheme(theme);
 };

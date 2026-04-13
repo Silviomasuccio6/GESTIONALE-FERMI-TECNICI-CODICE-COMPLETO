@@ -62,6 +62,28 @@ export class PrismaUserRepository implements UserRepository {
     return user ? toEntity(user) : null;
   }
 
+  async getByIdInTenant(tenantId: string, userId: string): Promise<UserEntity | null> {
+    return this.findByIdInTenant(tenantId, userId);
+  }
+
+  async countActiveAdmins(tenantId: string, excludeUserId?: string): Promise<number> {
+    return prisma.user.count({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: "ACTIVE",
+        ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+        roles: {
+          some: {
+            role: {
+              key: "ADMIN"
+            }
+          }
+        }
+      }
+    });
+  }
+
   async create(input: {
     tenantId: string;
     email: string;

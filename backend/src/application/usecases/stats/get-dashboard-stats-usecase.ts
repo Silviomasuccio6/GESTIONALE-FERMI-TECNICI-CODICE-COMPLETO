@@ -146,23 +146,40 @@ export class GetDashboardStatsUseCase {
     const now = new Date();
     const start = filters.dateFrom ?? new Date(now.getTime() - 90 * dayMs);
     const end = filters.dateTo ?? now;
+    const activeStatusesArray: StoppageStatus[] = ["OPEN", "IN_PROGRESS", "WAITING_PARTS", "SOLICITED"];
+    const activeStatuses = new Set<StoppageStatus>(activeStatusesArray);
+
+    const vehicleWhere = {
+      ...(filters.plate ? { plate: { contains: filters.plate, mode: "insensitive" as const } } : {}),
+      ...(filters.brand ? { brand: { contains: filters.brand, mode: "insensitive" as const } } : {}),
+      ...(filters.model ? { model: { contains: filters.model, mode: "insensitive" as const } } : {})
+    };
 
     const whereBase = {
       tenantId,
       deletedAt: null,
       ...(filters.siteId ? { siteId: filters.siteId } : {}),
       ...(filters.workshopId ? { workshopId: filters.workshopId } : {}),
-      ...(filters.status ? { status: filters.status } : {}),
-      vehicle: {
-        ...(filters.plate ? { plate: { contains: filters.plate, mode: "insensitive" as const } } : {}),
-        ...(filters.brand ? { brand: { contains: filters.brand, mode: "insensitive" as const } } : {}),
-        ...(filters.model ? { model: { contains: filters.model, mode: "insensitive" as const } } : {})
-      }
+      ...(filters.status ? { status: filters.status } : {})
     };
 
-    const [stoppages, closedTrendRows, reminders] = await Promise.all([
+    const lifecycleWhere = {
+      ...whereBase,
+      vehicle: vehicleWhere,
+      OR: [
+        { openedAt: { gte: start, lte: end } },
+        { closedAt: { gte: start, lte: end } },
+        {
+          status: { in: activeStatusesArray },
+          openedAt: { lte: end },
+          OR: [{ closedAt: null }, { closedAt: { gte: start } }]
+        }
+      ]
+    };
+
+    const [stoppages, reminders, statusTransitions] = await Promise.all([
       prisma.stoppage.findMany({
-        where: { ...whereBase, openedAt: { gte: start, lte: end } },
+        where: lifecycleWhere,
         include: {
           site: true,
           workshop: true,
@@ -171,21 +188,31 @@ export class GetDashboardStatsUseCase {
         },
         orderBy: { openedAt: "desc" }
       }),
-      prisma.stoppage.findMany({
-        where: { ...whereBase, closedAt: { gte: start, lte: end } },
-        select: { closedAt: true }
-      }),
       prisma.reminder.findMany({
         where: {
           tenantId,
           sentAt: { gte: start, lte: end },
-          stoppage: whereBase
+          stoppage: lifecycleWhere
         },
         orderBy: { sentAt: "asc" }
+      }),
+      prisma.stoppageEvent.findMany({
+        where: {
+          tenantId,
+          createdAt: { gte: start, lte: end },
+          type: { in: ["STATUS_CHANGED", "WORKFLOW_TRANSITION", "BULK_STATUS"] },
+          stoppage: {
+            ...whereBase,
+            vehicle: vehicleWhere
+          }
+        },
+        select: {
+          createdAt: true,
+          payload: true
+        }
       })
     ]);
 
-    const activeStatuses = new Set<StoppageStatus>(["OPEN", "IN_PROGRESS", "WAITING_PARTS", "SOLICITED"]);
     const closed = stoppages.filter((x) => x.status === "CLOSED" && x.closedAt);
     const open = stoppages.filter((x) => activeStatuses.has(x.status));
     const closureDurations = closed.map((x) => daysDiff(x.openedAt, x.closedAt!)).sort((a, b) => a - b);
@@ -230,20 +257,41 @@ export class GetDashboardStatsUseCase {
       existingVehicle.openDays += daysDiff(stoppage.openedAt, stoppage.closedAt ?? now);
       byVehicleMap.set(vehicleKey, existingVehicle);
 
-      const openKey = stoppage.openedAt.toISOString().slice(0, 10);
-      openedDailyMap.set(openKey, (openedDailyMap.get(openKey) ?? 0) + 1);
-
-    }
-
-    for (const row of closedTrendRows) {
-      if (!row.closedAt) continue;
-      const closeKey = row.closedAt.toISOString().slice(0, 10);
-      closedDailyMap.set(closeKey, (closedDailyMap.get(closeKey) ?? 0) + 1);
+      if (stoppage.openedAt >= start && stoppage.openedAt <= end) {
+        const openKey = stoppage.openedAt.toISOString().slice(0, 10);
+        openedDailyMap.set(openKey, (openedDailyMap.get(openKey) ?? 0) + 1);
+      }
+      if (stoppage.closedAt && stoppage.closedAt >= start && stoppage.closedAt <= end) {
+        const closeKey = stoppage.closedAt.toISOString().slice(0, 10);
+        closedDailyMap.set(closeKey, (closedDailyMap.get(closeKey) ?? 0) + 1);
+      }
     }
 
     for (const reminder of reminders) {
       const key = reminder.sentAt.toISOString().slice(0, 10);
       reminderDailyMap.set(key, (reminderDailyMap.get(key) ?? 0) + 1);
+    }
+
+    for (const transition of statusTransitions) {
+      const payload =
+        transition.payload && typeof transition.payload === "object"
+          ? (transition.payload as Record<string, unknown>)
+          : null;
+      const fromRaw = payload && typeof payload.from === "string" ? payload.from : null;
+      const toRaw =
+        payload && typeof payload.to === "string"
+          ? payload.to
+          : payload && typeof payload.status === "string"
+            ? payload.status
+            : null;
+      if (!fromRaw || !toRaw) continue;
+      const from = String(fromRaw).toUpperCase() as StoppageStatus;
+      const to = String(toRaw).toUpperCase() as StoppageStatus;
+
+      if (activeStatuses.has(to) && !activeStatuses.has(from)) {
+        const reopenKey = transition.createdAt.toISOString().slice(0, 10);
+        openedDailyMap.set(reopenKey, (openedDailyMap.get(reopenKey) ?? 0) + 1);
+      }
     }
 
     const trendRange: string[] = [];

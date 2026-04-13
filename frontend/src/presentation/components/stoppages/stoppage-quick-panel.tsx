@@ -29,7 +29,6 @@ const priorityOptions = [
   { value: "HIGH", label: "Alta" },
   { value: "CRITICAL", label: "Critica" }
 ];
-
 const toList = (value: any): any[] => {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.data)) return value.data;
@@ -103,24 +102,12 @@ export const StoppageQuickPanel = ({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [openedAtInput, setOpenedAtInput] = useState("");
-  const [closedAtInput, setClosedAtInput] = useState("");
   const [selectedColor, setSelectedColor] = useState(initialColor ?? eventColorOptions[0]);
 
   useEffect(() => setTab(mode === "create" ? "edit" : (mode as "detail" | "edit")), [mode, stoppageId]);
   useEffect(() => {
     setSelectedColor(initialColor ?? eventColorOptions[0]);
   }, [initialColor, open]);
-  useEffect(() => {
-    if (!openedAtInput) return;
-    const opened = new Date(openedAtInput);
-    if (Number.isNaN(opened.getTime())) return;
-    const closed = closedAtInput ? new Date(closedAtInput) : null;
-    if (!closed || Number.isNaN(closed.getTime()) || closed.getTime() <= opened.getTime()) {
-      const nextClosed = new Date(opened.getTime() + 60 * 60000);
-      setClosedAtInput(toLocalDateTimeInput(nextClosed.toISOString()));
-    }
-  }, [openedAtInput, closedAtInput]);
-
   useEffect(() => {
     if (!open) return;
     let mounted = true;
@@ -170,7 +157,6 @@ export const StoppageQuickPanel = ({
         setSelectedWorkshopId(nextWorkshopId);
         setSelectedVehicleId(nextVehicleId);
         setOpenedAtInput(toLocalDateTimeInput(nextDetail?.openedAt ?? initialOpenedAt ?? nowIso()));
-        setClosedAtInput(toLocalDateTimeInput(nextDetail?.closedAt ?? initialClosedAt ?? null));
 
         if (results.some((r) => r.status === "rejected")) {
           setError("Alcuni dati non sono disponibili. Puoi comunque continuare.");
@@ -320,17 +306,14 @@ export const StoppageQuickPanel = ({
 
     try {
       const openedAt = fromLocalDateTimeInput(openedAtInput);
-      const closedAt = fromLocalDateTimeInput(closedAtInput);
       if (!openedAt) {
         setSaving(false);
         setError("Data/ora inizio non valida.");
         return;
       }
-      if (closedAt && new Date(closedAt).getTime() <= new Date(openedAt).getTime()) {
-        setSaving(false);
-        setError("La data/ora fine deve essere successiva all'inizio.");
-        return;
-      }
+      const status = String(form.get("status") || "") || "OPEN";
+      const existingClosedAt = detail?.closedAt ? new Date(detail.closedAt).toISOString() : null;
+      const autoClosedAt = status === "CLOSED" ? existingClosedAt ?? new Date().toISOString() : null;
 
       const payload = {
         siteId,
@@ -338,12 +321,12 @@ export const StoppageQuickPanel = ({
         workshopId,
         reason,
         notes: String(form.get("notes") || ""),
-        status: String(form.get("status") || "") || "OPEN",
+        status,
         priority: String(form.get("priority") || "") || "MEDIUM",
         assignedToUserId: String(form.get("assignedToUserId") || "") || null,
         reminderAfterDays: Number(form.get("reminderAfterDays") || 0) || null,
         openedAt,
-        closedAt
+        closedAt: autoClosedAt
       };
 
       let result: any = null;
@@ -393,6 +376,11 @@ export const StoppageQuickPanel = ({
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Stato</p>
                 <StoppageStatusBadge status={detail.status} />
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Timeline fermo</p>
+                <p className="text-sm">Aperto: {detail.openedAt ? new Date(detail.openedAt).toLocaleString("it-IT") : "-"}</p>
+                <p className="text-sm">Chiuso: {detail.closedAt ? new Date(detail.closedAt).toLocaleString("it-IT") : "-"}</p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Sede / Officina</p>
@@ -559,17 +547,13 @@ export const StoppageQuickPanel = ({
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>Reminder dopo giorni</Label>
+                <Label>Deadline (giorni)</Label>
                 <Input type="number" min={1} name="reminderAfterDays" defaultValue={detail?.reminderAfterDays || ""} />
+                <p className="text-xs text-muted-foreground">Facoltativa: utile solo per promemoria automatici.</p>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="openedAt">Da (data/ora)</Label>
                 <Input id="openedAt" type="datetime-local" step={900} value={openedAtInput} onChange={(e) => setOpenedAtInput(e.target.value)} required />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="closedAt">A (data/ora)</Label>
-                <Input id="closedAt" type="datetime-local" step={900} value={closedAtInput} onChange={(e) => setClosedAtInput(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Durata predefinita: 1 ora (modificabile).</p>
               </div>
               <div className="grid gap-1.5">
                 <Label>Colore promemoria</Label>
