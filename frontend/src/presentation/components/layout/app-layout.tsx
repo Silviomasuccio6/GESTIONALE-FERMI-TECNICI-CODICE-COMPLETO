@@ -14,12 +14,12 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Rocket,
   Sun,
   TimerReset,
   TriangleAlert,
   AlertTriangle,
   UserPlus,
-  Users,
   Wrench,
   X
 } from "lucide-react";
@@ -37,6 +37,7 @@ import {
 import { ThemeMode, getStoredTheme, setTheme } from "../../../infrastructure/theme/theme-manager";
 import { cn } from "../../../lib/utils";
 import { useEntitlements } from "../../hooks/use-entitlements";
+import { OnboardingChecklistContent } from "../onboarding/onboarding-checklist-content";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { GBackground } from "./g-background";
@@ -94,7 +95,12 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { key: "sedi", to: "/anagrafiche/sedi", label: "Sedi", icon: Building2, match: (path) => path.startsWith("/anagrafiche/sedi") },
       { key: "officine", to: "/anagrafiche/officine", label: "Officine", icon: Wrench, match: (path) => path.startsWith("/anagrafiche/officine") },
-      { key: "veicoli", to: "/anagrafiche/veicoli", label: "Veicoli", icon: CarFront, match: (path) => path.startsWith("/anagrafiche/veicoli") },
+      { key: "veicoli", to: "/anagrafiche/veicoli", label: "Veicoli", icon: CarFront, match: (path) => path.startsWith("/anagrafiche/veicoli") }
+    ]
+  },
+  {
+    title: "Controllo Flotta",
+    items: [
       {
         key: "manutenzioni",
         to: "/anagrafiche/manutenzioni",
@@ -111,12 +117,6 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
       }
     ]
   },
-  {
-    title: "Organizzazione",
-    items: [
-      { key: "utenti", to: "/utenti", label: "Utenti e Ruoli", icon: Users, match: (path) => path.startsWith("/utenti") }
-    ]
-  }
 ];
 
 const mobileNavItems: Array<{ to: string; label: string; icon: any; feature?: FeatureKey }> = [
@@ -124,7 +124,6 @@ const mobileNavItems: Array<{ to: string; label: string; icon: any; feature?: Fe
   { to: "/fermi/calendario", label: "Calendario", icon: CalendarDays },
   { to: "/fermi", label: "Fermi", icon: ClipboardList },
   { to: "/anagrafiche/scadenziario", label: "Scadenze", icon: BellRing },
-  { to: "/fermi/kanban", label: "Kanban", icon: KanbanSquare },
   { to: "/statistiche", label: "Statistiche", icon: ChartColumnIncreasing, feature: "reports_advanced" }
 ];
 
@@ -134,6 +133,8 @@ export const AppLayout = () => {
   const location = useLocation();
   const { token, user, setUser, logout } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingRendered, setOnboardingRendered] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -149,6 +150,7 @@ export const AppLayout = () => {
   const { can, plan, requiredPlan, loading: entitlementsLoading, error: entitlementsError } = useEntitlements();
   const setEntitlements = useEntitlementsStore((state) => state.setEntitlements);
   const notificationsMenuRef = useRef<HTMLDivElement | null>(null);
+  const onboardingMenuRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const dismissedStorageKey = useMemo(
     () => (user ? `fermi_dismissed_notifications:${user.tenantId}:${user.id}` : null),
@@ -176,11 +178,21 @@ export const AppLayout = () => {
   useLayoutEffect(() => {
     scrollToTop();
     const raf = window.requestAnimationFrame(scrollToTop);
+    setOnboardingOpen(false);
     setNotificationsOpen(false);
     setProfileOpen(false);
     setMobileOpen(false);
     return () => window.cancelAnimationFrame(raf);
   }, [location.pathname, location.key, scrollToTop]);
+
+  useEffect(() => {
+    if (onboardingOpen) {
+      setOnboardingRendered(true);
+      return;
+    }
+    const timeout = window.setTimeout(() => setOnboardingRendered(false), 320);
+    return () => window.clearTimeout(timeout);
+  }, [onboardingOpen]);
 
   useEffect(() => {
     if (!token || user) return;
@@ -311,6 +323,9 @@ export const AppLayout = () => {
       if (notificationsMenuRef.current && !notificationsMenuRef.current.contains(target)) {
         setNotificationsOpen(false);
       }
+      if (onboardingMenuRef.current && !onboardingMenuRef.current.contains(target)) {
+        setOnboardingOpen(false);
+      }
       if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
         setProfileOpen(false);
       }
@@ -318,6 +333,7 @@ export const AppLayout = () => {
 
     const onEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        setOnboardingOpen(false);
         setNotificationsOpen(false);
         setProfileOpen(false);
       }
@@ -337,6 +353,7 @@ export const AppLayout = () => {
 
   const activeLabel = useMemo(() => {
     if (location.pathname.startsWith("/upgrade")) return "Upgrade piano";
+    if (location.pathname.startsWith("/utenti")) return "Utenti e Ruoli";
     for (const section of visibleNavSections) {
       for (const item of section.items) {
         if (item.match(location.pathname)) return item.label;
@@ -456,6 +473,7 @@ export const AppLayout = () => {
                 onClick={() => {
                   setNotificationsOpen((v) => !v);
                   setProfileOpen(false);
+                  setOnboardingOpen(false);
                 }}
               >
                 <BellRing className="h-4 w-4" />
@@ -566,6 +584,68 @@ export const AppLayout = () => {
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
+            <div ref={onboardingMenuRef} className="relative">
+              <Button
+                variant={onboardingOpen ? "default" : "outline"}
+                size="sm"
+                className="hidden h-10 rounded-full px-3 lg:inline-flex"
+                onClick={() => {
+                  setNotificationsOpen(false);
+                  setProfileOpen(false);
+                  setOnboardingOpen((v) => !v);
+                }}
+              >
+                <Rocket className="h-4 w-4" />
+                Setup Guidato
+              </Button>
+              <Button
+                variant={onboardingOpen ? "default" : "outline"}
+                size="icon"
+                className="h-10 w-10 lg:hidden"
+                aria-label="Apri setup guidato"
+                onClick={() => {
+                  setNotificationsOpen(false);
+                  setProfileOpen(false);
+                  setOnboardingOpen((v) => !v);
+                }}
+              >
+                <Rocket className="h-4 w-4" />
+              </Button>
+
+              {onboardingRendered ? (
+                <div
+                  className={cn(
+                    "setup-guided-popover saas-floating-panel absolute right-0 top-[calc(100%+0.55rem)] z-[90] w-[min(560px,calc(100vw-1rem))] rounded-xl p-3",
+                    onboardingOpen ? "is-open" : "is-closing"
+                  )}
+                  aria-hidden={!onboardingOpen}
+                >
+                  <div className="setup-guided-popover__head saas-surface rounded-lg p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Setup Guidato</p>
+                        <p className="text-sm font-semibold text-foreground">Program Board Onboarding</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Pannello operativo compatto stile notifiche.</p>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOnboardingOpen(false)} aria-label="Chiudi setup guidato">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="setup-guided-popover__body g-scroll mt-2 overflow-auto pr-1">
+                    <div className="saas-surface rounded-lg p-3">
+                      <OnboardingChecklistContent
+                        onNavigateRoute={(route) => {
+                          setOnboardingOpen(false);
+                          navigate(route);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <div ref={profileMenuRef} className="relative">
               <Button
                 variant="outline"
@@ -574,6 +654,7 @@ export const AppLayout = () => {
                 onClick={() => {
                   setProfileOpen((v) => !v);
                   setNotificationsOpen(false);
+                  setOnboardingOpen(false);
                 }}
               >
                 <span className="mr-2.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
@@ -605,6 +686,16 @@ export const AppLayout = () => {
                       }}
                     >
                       Upgrade piano
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="justify-start"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        navigate("/utenti");
+                      }}
+                    >
+                      Utenti e ruoli
                     </Button>
                     <Button
                       variant="ghost"
@@ -760,7 +851,7 @@ export const AppLayout = () => {
       </main>
 
       <div className="saas-floating-panel fixed inset-x-3 bottom-3 z-40 rounded-2xl border-border/60 p-2 lg:hidden">
-        <div className="grid grid-cols-6 gap-1">
+        <div className="grid grid-cols-5 gap-1">
             {visibleMobileNavItems.map((item) => {
               const active =
                 item.to === "/fermi"

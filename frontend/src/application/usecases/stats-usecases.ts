@@ -1,8 +1,27 @@
 import { httpClient } from "../../infrastructure/api/http-client";
 import { tokenStorage } from "../../infrastructure/auth/token-storage";
 
+export type OnboardingChecklistStep = {
+  key: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  progressLabel: string;
+};
+
+export type OnboardingChecklistResponse = {
+  kpis: {
+    completed: number;
+    total: number;
+    completionRate: number;
+    isReady: boolean;
+  };
+  steps: OnboardingChecklistStep[];
+};
+
 export const statsUseCases = {
   dashboard: () => httpClient.get<any>("/stats/dashboard"),
+  onboardingChecklist: () => httpClient.get<OnboardingChecklistResponse>("/stats/onboarding/checklist"),
   analytics: (params?: Record<string, string | number | undefined>) => httpClient.get<any>("/stats/analytics", params),
   workshopsHealth: (params?: Record<string, string | number | undefined>) => httpClient.get<{ data: any[] }>("/stats/workshops/health", params),
   workshopsCapacity: (params?: Record<string, string | number | undefined>) => httpClient.get<{ data: any[] }>("/stats/workshops/capacity", params),

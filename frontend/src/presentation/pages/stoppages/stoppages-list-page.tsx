@@ -36,6 +36,19 @@ const rowActionOptions = [
   { value: "STATUS_CANCELED", label: "Stato: Annullato" }
 ] as const;
 
+const formatDateTimeCompact = (value?: string | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
+
 export const StoppagesListPage = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -231,8 +244,10 @@ export const StoppagesListPage = () => {
                 <CardContent className="space-y-2 pt-4">
                   <p className="text-sm"><span className="text-muted-foreground">Targa: </span><span className="font-semibold">{item.vehicle?.plate}</span></p>
                   <p className="text-sm"><span className="text-muted-foreground">Veicolo: </span>{item.vehicle?.brand} {item.vehicle?.model}</p>
-                  <p className="text-sm"><span className="text-muted-foreground">Sede: </span>{item.site?.name}</p>
-                  <p className="text-sm"><span className="text-muted-foreground">Officina: </span>{item.workshop?.name}</p>
+                  <p className="text-sm"><span className="text-muted-foreground">Sede / Officina: </span>{item.site?.name} · {item.workshop?.name}</p>
+                  <p className="text-sm"><span className="text-muted-foreground">Apertura: </span>{formatDateTimeCompact(item.openedAt)}</p>
+                  <p className="text-sm"><span className="text-muted-foreground">Motivo: </span>{item.reason || "-"}</p>
+                  <p className="text-sm"><span className="text-muted-foreground">Aggiornamenti: </span>{item.notes || "-"}</p>
                   <div><StoppageStatusBadge status={item.status} /></div>
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} />Seleziona</label>
                   <div className="grid grid-cols-[1fr_auto] gap-2 pt-1">
@@ -259,11 +274,11 @@ export const StoppagesListPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[48px]">Sel.</TableHead>
-                  <TableHead className="w-[22%]">Veicolo</TableHead>
-                  <TableHead className="w-[24%]">Sede / Officina</TableHead>
-                  <TableHead className="w-[22%]">Motivo</TableHead>
-                  <TableHead className="w-[18%]">Stato</TableHead>
-                  <TableHead className="w-[14%] text-right">Azioni</TableHead>
+                  <TableHead className="w-[23%]">Veicolo / Struttura</TableHead>
+                  <TableHead className="w-[16%]">Apertura</TableHead>
+                  <TableHead className="w-[31%]">Motivo e Aggiornamenti</TableHead>
+                  <TableHead className="w-[12%]">Stato</TableHead>
+                  <TableHead className="w-[18%] text-right">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -276,15 +291,22 @@ export const StoppagesListPage = () => {
                     <TableCell className="py-2">
                       <p className="truncate text-xs font-semibold">{item.vehicle?.plate}</p>
                       <p className="truncate text-xs text-muted-foreground">{item.vehicle?.brand} {item.vehicle?.model}</p>
-                    </TableCell>
-
-                    <TableCell className="py-2">
-                      <p className="truncate text-xs">{item.site?.name}</p>
                       <p className="truncate text-xs text-muted-foreground">{item.workshop?.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{item.site?.name}</p>
                     </TableCell>
 
                     <TableCell className="py-2">
-                      <p className="line-clamp-2 text-xs" title={item.reason}>{item.reason}</p>
+                      <p className="truncate text-xs font-medium">{formatDateTimeCompact(item.openedAt)}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {item.closedAt ? `Chiuso: ${formatDateTimeCompact(item.closedAt)}` : "Ancora aperto"}
+                      </p>
+                    </TableCell>
+
+                    <TableCell className="py-2">
+                      <p className="line-clamp-2 text-xs font-medium" title={item.reason}>{item.reason || "-"}</p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground" title={item.notes || ""}>
+                        {item.notes || "Nessun aggiornamento"}
+                      </p>
                     </TableCell>
 
                     <TableCell className="py-2">

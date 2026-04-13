@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import ExcelJS from "exceljs";
 import { z } from "zod";
 import { GetDashboardStatsUseCase } from "../../../application/usecases/stats/get-dashboard-stats-usecase.js";
+import { prisma } from "../../../infrastructure/database/prisma/client.js";
 import { stoppageStatusLabel } from "../../../shared/utils/stoppage-status-label.js";
 
 type AnalyticsQuery = {
@@ -697,6 +698,115 @@ export class StatsController {
       parsed.dateTo ? new Date(parsed.dateTo) : undefined
     );
     res.json({ data: result });
+  };
+
+  onboardingChecklist = async (req: Request, res: Response) => {
+    const tenantId = req.auth!.tenantId;
+
+    const [
+      sitesCount,
+      workshopsCount,
+      vehiclesCount,
+      activeUsersCount,
+      stoppagesCount,
+      maintenancesCount,
+      vehiclesWithScheduleCount,
+      calendarIntegrationCount
+    ] = await Promise.all([
+      prisma.site.count({ where: { tenantId, deletedAt: null } }),
+      prisma.workshop.count({ where: { tenantId, deletedAt: null } }),
+      prisma.vehicle.count({ where: { tenantId, deletedAt: null } }),
+      prisma.user.count({ where: { tenantId, deletedAt: null, status: "ACTIVE" } }),
+      prisma.stoppage.count({ where: { tenantId, deletedAt: null } }),
+      prisma.vehicleMaintenance.count({ where: { tenantId, deletedAt: null } }),
+      prisma.vehicle.count({
+        where: {
+          tenantId,
+          deletedAt: null,
+          OR: [{ maintenanceIntervalKm: { not: null } }, { revisionDueAt: { not: null } }]
+        }
+      }),
+      prisma.auditLog.count({
+        where: {
+          tenantId,
+          action: { in: ["SETTINGS_GOOGLE_CALENDAR", "CALENDAR_APPLE_FEED_TOKEN_CREATED"] }
+        }
+      })
+    ]);
+
+    const steps = [
+      {
+        key: "sites",
+        title: "Configura sedi operative",
+        description: "Almeno una sede attiva per iniziare la gestione fermi.",
+        completed: sitesCount > 0,
+        progressLabel: `${sitesCount} sedi`
+      },
+      {
+        key: "workshops",
+        title: "Registra officine partner",
+        description: "Aggiungi almeno una officina con contatti aggiornati.",
+        completed: workshopsCount > 0,
+        progressLabel: `${workshopsCount} officine`
+      },
+      {
+        key: "vehicles",
+        title: "Importa parco veicoli",
+        description: "Obiettivo onboarding: almeno 5 veicoli caricati.",
+        completed: vehiclesCount >= 5,
+        progressLabel: `${vehiclesCount}/5 veicoli`
+      },
+      {
+        key: "users",
+        title: "Abilita il team",
+        description: "Consigliato minimo 2 utenti attivi (owner + operatore).",
+        completed: activeUsersCount >= 2,
+        progressLabel: `${activeUsersCount}/2 utenti`
+      },
+      {
+        key: "stoppages",
+        title: "Apri il primo fermo",
+        description: "Testa il workflow completo con un fermo reale.",
+        completed: stoppagesCount > 0,
+        progressLabel: `${stoppagesCount} fermi`
+      },
+      {
+        key: "maintenances",
+        title: "Registra manutenzioni",
+        description: "Inserisci almeno una manutenzione con allegato fattura.",
+        completed: maintenancesCount > 0,
+        progressLabel: `${maintenancesCount} manutenzioni`
+      },
+      {
+        key: "deadlines",
+        title: "Configura motore preventivo",
+        description: "Imposta intervallo km o revisione per ogni veicolo.",
+        completed: vehiclesWithScheduleCount > 0,
+        progressLabel: `${vehiclesWithScheduleCount} veicoli con pianificazione`
+      },
+      {
+        key: "calendar",
+        title: "Attiva integrazione calendario",
+        description: "Collega Google/Apple Calendar per visione operativa condivisa.",
+        completed: calendarIntegrationCount > 0,
+        progressLabel: calendarIntegrationCount > 0 ? "Integrata" : "Non collegata"
+      }
+    ];
+
+    const completed = steps.filter((step) => step.completed).length;
+    const total = steps.length;
+    const completionRate = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
+    const isReady = completionRate >= 80;
+
+    res.json({
+      kpis: {
+        completed,
+        total,
+        completionRate,
+        isReady
+      },
+      steps
+    });
   };
 
   teamPerformance = async (req: Request, res: Response) => {

@@ -1,14 +1,19 @@
-import { Badge } from "../common/table";
 import { stoppageStatusLabel } from "../../../domain/constants/stoppage-status";
 
 export const StoppageStatusBadge = ({ status }: { status: string }) => {
-  const map: Record<string, "ok" | "warn" | "danger" | "neutral"> = {
-    OPEN: "warn",
-    IN_PROGRESS: "warn",
-    WAITING_PARTS: "neutral",
-    SOLICITED: "danger",
-    CLOSED: "ok",
-    CANCELED: "neutral"
+  const toneMap: Record<string, string> = {
+    OPEN: "is-open",
+    IN_PROGRESS: "is-progress",
+    WAITING_PARTS: "is-waiting",
+    SOLICITED: "is-solicited",
+    CLOSED: "is-closed",
+    CANCELED: "is-canceled"
   };
-  return <Badge label={stoppageStatusLabel[status] ?? status} tone={map[status] ?? "neutral"} />;
+
+  return (
+    <span className={`stoppage-status-pill ${toneMap[status] ?? "is-neutral"}`}>
+      <span className="stoppage-status-dot" />
+      <span>{stoppageStatusLabel[status] ?? status}</span>
+    </span>
+  );
 };

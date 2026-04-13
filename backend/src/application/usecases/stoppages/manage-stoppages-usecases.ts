@@ -4,6 +4,23 @@ import { AppError } from "../../../shared/errors/app-error.js";
 
 export class ManageStoppagesUseCases {
   constructor(private readonly repository: PrismaStoppageRepository) {}
+
+  private normalizeWorkflowFields(current: Record<string, unknown> | null, input: Record<string, unknown>) {
+    const nextAssignedRaw = input.assignedToUserId ?? current?.assignedToUserId ?? null;
+    const nextAssignedToUserId = nextAssignedRaw ? String(nextAssignedRaw).trim() : null;
+
+    const parsedReminder =
+      input.reminderAfterDays !== undefined
+        ? Number(input.reminderAfterDays)
+        : current?.reminderAfterDays !== undefined && current?.reminderAfterDays !== null
+          ? Number(current.reminderAfterDays)
+          : null;
+
+    const nextReminderAfterDays = Number.isFinite(parsedReminder as number) && Number(parsedReminder) > 0 ? Math.max(1, Math.trunc(Number(parsedReminder))) : null;
+
+    return { assignedToUserId: nextAssignedToUserId, reminderAfterDays: nextReminderAfterDays };
+  }
+
   list(
     tenantId: string,
     params: {
@@ -33,13 +50,34 @@ export class ManageStoppagesUseCases {
       }
     });
     if (duplicateOpen) throw new AppError("Esiste gia un fermo aperto simile per questo veicolo", 409, "CONFLICT");
-    return this.repository.create(tenantId, input);
+
+    const workflowPatch = this.normalizeWorkflowFields(null, input);
+    const payload: Record<string, unknown> = {
+      ...input,
+      ...workflowPatch
+    };
+
+    if (payload.status === "CLOSED" && !payload.closedAt) {
+      payload.closedAt = new Date();
+    }
+    return this.repository.create(tenantId, payload);
   }
   async update(tenantId: string, id: string, input: Record<string, unknown>) {
+    const current = (await this.repository.getById(tenantId, id)) as Record<string, unknown> | null;
+    if (!current) throw new AppError("Fermo non trovato", 404, "NOT_FOUND");
+
+    const workflowPatch = this.normalizeWorkflowFields(current, input);
+    const payload: Record<string, unknown> = {
+      ...input,
+      ...workflowPatch
+    };
+
     if (input.status === "CLOSED" && !input.closedAt) {
-      input.closedAt = new Date();
+      payload.closedAt = new Date();
+    } else if (input.status && input.status !== "CLOSED" && current.status === "CLOSED" && input.closedAt === undefined) {
+      payload.closedAt = null;
     }
-    return this.repository.update(tenantId, id, input);
+    return this.repository.update(tenantId, id, payload);
   }
   delete(tenantId: string, id: string) { return this.repository.delete(tenantId, id); }
 }

@@ -3,53 +3,92 @@ const REFRESH_KEY = "fermi_refresh";
 const REMEMBER_KEY = "fermi_auth_remember";
 const CSRF_KEY = "fermi_csrf_token";
 
+const getStorage = (kind: "local" | "session"): Storage | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    return kind === "local" ? window.localStorage : window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
+
+const safeGetItem = (kind: "local" | "session", key: string) => {
+  const storage = getStorage(kind);
+  if (!storage) return null;
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeSetItem = (kind: "local" | "session", key: string, value: string) => {
+  const storage = getStorage(kind);
+  if (!storage) return;
+  try {
+    storage.setItem(key, value);
+  } catch {
+    // Ignore quota/security errors and keep app usable.
+  }
+};
+
+const safeRemoveItem = (kind: "local" | "session", key: string) => {
+  const storage = getStorage(kind);
+  if (!storage) return;
+  try {
+    storage.removeItem(key);
+  } catch {
+    // Ignore quota/security errors and keep app usable.
+  }
+};
+
 export const tokenStorage = {
-  get: () => localStorage.getItem(KEY) ?? sessionStorage.getItem(KEY),
-  getRefresh: () => localStorage.getItem(REFRESH_KEY) ?? sessionStorage.getItem(REFRESH_KEY),
+  get: () => safeGetItem("local", KEY) ?? safeGetItem("session", KEY),
+  getRefresh: () => safeGetItem("local", REFRESH_KEY) ?? safeGetItem("session", REFRESH_KEY),
   set: (token: string, remember = true) => {
     if (remember) {
-      localStorage.setItem(KEY, token);
-      localStorage.setItem(REMEMBER_KEY, "1");
-      sessionStorage.removeItem(KEY);
+      safeSetItem("local", KEY, token);
+      safeSetItem("local", REMEMBER_KEY, "1");
+      safeRemoveItem("session", KEY);
       return;
     }
-    sessionStorage.setItem(KEY, token);
-    sessionStorage.setItem(REMEMBER_KEY, "0");
-    localStorage.removeItem(KEY);
+    safeSetItem("session", KEY, token);
+    safeSetItem("session", REMEMBER_KEY, "0");
+    safeRemoveItem("local", KEY);
   },
   setRefresh: (refreshToken: string, remember = true) => {
     if (remember) {
-      localStorage.setItem(REFRESH_KEY, refreshToken);
-      sessionStorage.removeItem(REFRESH_KEY);
+      safeSetItem("local", REFRESH_KEY, refreshToken);
+      safeRemoveItem("session", REFRESH_KEY);
       return;
     }
-    sessionStorage.setItem(REFRESH_KEY, refreshToken);
-    localStorage.removeItem(REFRESH_KEY);
+    safeSetItem("session", REFRESH_KEY, refreshToken);
+    safeRemoveItem("local", REFRESH_KEY);
   },
   setTokens: (token: string, refreshToken: string, remember = true) => {
     tokenStorage.set(token, remember);
     tokenStorage.setRefresh(refreshToken, remember);
   },
-  getCsrf: () => localStorage.getItem(CSRF_KEY) ?? sessionStorage.getItem(CSRF_KEY),
+  getCsrf: () => safeGetItem("local", CSRF_KEY) ?? safeGetItem("session", CSRF_KEY),
   setCsrf: (csrfToken: string, remember?: boolean) => {
-    const shouldRemember = remember ?? (localStorage.getItem(REMEMBER_KEY) ?? sessionStorage.getItem(REMEMBER_KEY) ?? "1") === "1";
+    const shouldRemember = remember ?? (safeGetItem("local", REMEMBER_KEY) ?? safeGetItem("session", REMEMBER_KEY) ?? "1") === "1";
     if (shouldRemember) {
-      localStorage.setItem(CSRF_KEY, csrfToken);
-      sessionStorage.removeItem(CSRF_KEY);
+      safeSetItem("local", CSRF_KEY, csrfToken);
+      safeRemoveItem("session", CSRF_KEY);
       return;
     }
-    sessionStorage.setItem(CSRF_KEY, csrfToken);
-    localStorage.removeItem(CSRF_KEY);
+    safeSetItem("session", CSRF_KEY, csrfToken);
+    safeRemoveItem("local", CSRF_KEY);
   },
-  shouldRemember: () => (localStorage.getItem(REMEMBER_KEY) ?? sessionStorage.getItem(REMEMBER_KEY) ?? "1") === "1",
+  shouldRemember: () => (safeGetItem("local", REMEMBER_KEY) ?? safeGetItem("session", REMEMBER_KEY) ?? "1") === "1",
   clear: () => {
-    localStorage.removeItem(KEY);
-    localStorage.removeItem(REFRESH_KEY);
-    localStorage.removeItem(REMEMBER_KEY);
-    localStorage.removeItem(CSRF_KEY);
-    sessionStorage.removeItem(KEY);
-    sessionStorage.removeItem(REFRESH_KEY);
-    sessionStorage.removeItem(REMEMBER_KEY);
-    sessionStorage.removeItem(CSRF_KEY);
+    safeRemoveItem("local", KEY);
+    safeRemoveItem("local", REFRESH_KEY);
+    safeRemoveItem("local", REMEMBER_KEY);
+    safeRemoveItem("local", CSRF_KEY);
+    safeRemoveItem("session", KEY);
+    safeRemoveItem("session", REFRESH_KEY);
+    safeRemoveItem("session", REMEMBER_KEY);
+    safeRemoveItem("session", CSRF_KEY);
   }
 };

@@ -109,6 +109,8 @@ const GOOGLE_SYNC_MARKER_PREFIX = "[GF_GCAL_ID:";
 const APPLE_SYNC_MARKER_PREFIX = "[GF_ACAL_UID:";
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_RE = /\+?\d[\d\s().-]{6,}\d/g;
+const WORKFLOW_ACTIVE_STATUSES = new Set(["OPEN", "IN_PROGRESS", "WAITING_PARTS", "SOLICITED"]);
+const WORKFLOW_MANAGEMENT_ROLES = new Set(["ADMIN", "MANAGER"]);
 
 const ipv4ToInt = (ip: string) => {
   const parts = ip.split(".").map((part) => Number(part));
@@ -290,15 +292,6 @@ export class StoppagesController {
     private readonly opsRepository: StoppageOpsRepository
   ) {}
 
-  private readonly allowedTransitions: Record<string, string[]> = {
-    OPEN: ["IN_PROGRESS", "WAITING_PARTS", "SOLICITED", "CANCELED"],
-    IN_PROGRESS: ["WAITING_PARTS", "SOLICITED", "CLOSED", "CANCELED"],
-    WAITING_PARTS: ["IN_PROGRESS", "SOLICITED", "CLOSED", "CANCELED"],
-    SOLICITED: ["IN_PROGRESS", "WAITING_PARTS", "CLOSED", "CANCELED"],
-    CLOSED: [],
-    CANCELED: []
-  };
-
   private escalationLevel(daysOpen: number, thresholdDays: number) {
     if (daysOpen >= thresholdDays + 7) return "LEVEL_3";
     if (daysOpen >= thresholdDays + 3) return "LEVEL_2";
@@ -317,30 +310,50 @@ export class StoppagesController {
     await this.opsRepository.createEvent({ tenantId, stoppageId, userId, type, message, payload });
   }
 
-  private async ensureClosureChecklist(
-    tenantId: string,
-    stoppageId: string,
-    userId?: string
-  ) {
-    const checklist = await this.opsRepository.findLatestEventByType(tenantId, stoppageId, "CLOSURE_CHECKLIST");
-    const c = (checklist?.payload as any) ?? null;
-    const complete = Boolean(c?.photosUploaded && c?.finalCauseSet && c?.finalCostSet && c?.operatorSigned);
-    if (complete) return;
+  private hasWorkflowManagementRole(roles: string[] | undefined) {
+    return (roles ?? []).some((role) => WORKFLOW_MANAGEMENT_ROLES.has(String(role).toUpperCase()));
+  }
 
-    await this.opsRepository.createEvent({
-      tenantId,
-      stoppageId,
-      userId,
-      type: "CLOSURE_CHECKLIST",
-      message: "Checklist chiusura auto-completata in fase di chiusura",
-      payload: {
-        photosUploaded: true,
-        finalCauseSet: true,
-        finalCostSet: true,
-        operatorSigned: true,
-        notes: "Auto-completata dal sistema durante la chiusura fermo."
-      }
-    });
+  private assertWorkflowManagementRole(roles: string[] | undefined, actionLabel: string) {
+    if (this.hasWorkflowManagementRole(roles)) return;
+    throw new AppError(
+      `Solo ADMIN o MANAGER possono ${actionLabel}.`,
+      403,
+      "WORKFLOW_ROLE_FORBIDDEN"
+    );
+  }
+
+  private enrichWorkflowState<T extends Record<string, unknown>>(item: T): T & {
+    workflowDeadlineAt: string | null;
+    workflowOverdueDays: number;
+    workflowMissingOwner: boolean;
+    workflowMissingDeadline: boolean;
+  } {
+    const status = String(item.status ?? "");
+    const isActiveWorkflow = WORKFLOW_ACTIVE_STATUSES.has(status);
+    const openedAtValue = item.openedAt ? new Date(String(item.openedAt)) : null;
+    const reminderAfterDaysValue = item.reminderAfterDays === null || item.reminderAfterDays === undefined ? null : Number(item.reminderAfterDays);
+    const hasReminderDays = Number.isFinite(reminderAfterDaysValue as number) && Number(reminderAfterDaysValue) > 0;
+
+    let workflowDeadlineAt: string | null = null;
+    let workflowOverdueDays = 0;
+    if (openedAtValue && !Number.isNaN(openedAtValue.getTime()) && hasReminderDays) {
+      const deadlineMs = openedAtValue.getTime() + Number(reminderAfterDaysValue) * 86400000;
+      workflowDeadlineAt = new Date(deadlineMs).toISOString();
+      workflowOverdueDays = Math.max(0, Math.floor((Date.now() - deadlineMs) / 86400000));
+    }
+
+    const assignedToUserId = item.assignedToUserId ? String(item.assignedToUserId).trim() : "";
+    const workflowMissingOwner = isActiveWorkflow && !assignedToUserId;
+    const workflowMissingDeadline = isActiveWorkflow && !hasReminderDays;
+
+    return {
+      ...item,
+      workflowDeadlineAt,
+      workflowOverdueDays,
+      workflowMissingOwner,
+      workflowMissingDeadline
+    };
   }
 
   private getMarkedValue(raw: string, prefix: string) {
@@ -1344,19 +1357,26 @@ export class StoppagesController {
       sortDir: query.sortDir,
       ...pagination
     });
-    res.json({ ...result, page: query.page, pageSize: query.pageSize });
+    res.json({
+      ...result,
+      data: (result.data as Array<Record<string, unknown>>).map((item) => this.enrichWorkflowState(item)),
+      page: query.page,
+      pageSize: query.pageSize
+    });
   };
 
   getById = async (req: Request, res: Response) => {
-    const item = await this.useCases.getById(req.auth!.tenantId, req.params.id);
+    const item = (await this.useCases.getById(req.auth!.tenantId, req.params.id)) as Record<string, unknown> | null;
     if (!item) throw new AppError("Fermo non trovato", 404, "NOT_FOUND");
-    res.json(item);
+    res.json(this.enrichWorkflowState(item));
   };
 
   create = async (req: Request, res: Response) => {
     const input = stoppageSchema.parse(req.body);
     const result = await this.useCases.create(req.auth!.tenantId, {
       ...input,
+      assignedToUserId: input.assignedToUserId ?? null,
+      reminderAfterDays: input.reminderAfterDays ?? null,
       openedAt: new Date(input.openedAt),
       closedAt: input.closedAt ? new Date(input.closedAt) : null,
       createdByUserId: req.auth!.userId
@@ -1371,24 +1391,51 @@ export class StoppagesController {
 
   update = async (req: Request, res: Response) => {
     const input = stoppageSchema.partial().parse(req.body);
+    const current = (await this.useCases.getById(req.auth!.tenantId, req.params.id)) as any;
+    if (!current) throw new AppError("Fermo non trovato", 404, "NOT_FOUND");
+
     const result = await this.useCases.update(req.auth!.tenantId, req.params.id, {
       ...input,
       ...(input.openedAt ? { openedAt: new Date(input.openedAt) } : {}),
       ...(input.closedAt ? { closedAt: new Date(input.closedAt) } : {})
     });
 
+    if (input.status && current.status !== input.status) {
+      await this.logEvent(
+        req.auth!.tenantId,
+        req.params.id,
+        req.auth?.userId,
+        "STATUS_CHANGED",
+        `Stato aggiornato a ${stoppageStatusLabel(input.status)}`,
+        {
+          from: current.status,
+          to: input.status,
+          status: input.status
+        }
+      );
+    }
+
     await this.logEvent(req.auth!.tenantId, req.params.id, req.auth?.userId, "UPDATED", "Fermo aggiornato", input as any);
     res.json(result);
   };
 
   updateStatus = async (req: Request, res: Response) => {
-    const status = stoppageSchema.shape.status.parse(req.body.status);
+    const payload = z
+      .object({
+        status: stoppageSchema.shape.status,
+        closureSummary: z.string().trim().min(3).max(2000).optional()
+      })
+      .parse(req.body);
+    const status = payload.status;
     if (!status) throw new AppError("Stato non valido", 422, "VALIDATION_ERROR");
-    if (status === "CLOSED") {
-      await this.ensureClosureChecklist(req.auth!.tenantId, req.params.id, req.auth?.userId);
-    }
+    const current = (await this.useCases.getById(req.auth!.tenantId, req.params.id)) as any;
+    if (!current) throw new AppError("Fermo non trovato", 404, "NOT_FOUND");
+    if (current.status === status) throw new AppError("Il fermo è già in questo stato", 400, "VALIDATION_ERROR");
 
-    const result = await this.useCases.update(req.auth!.tenantId, req.params.id, { status });
+    const result = await this.useCases.update(req.auth!.tenantId, req.params.id, {
+      status,
+      ...(payload.closureSummary ? { closureSummary: payload.closureSummary } : {})
+    });
 
     await this.logEvent(
       req.auth!.tenantId,
@@ -1397,7 +1444,9 @@ export class StoppagesController {
       "STATUS_CHANGED",
       `Stato aggiornato a ${stoppageStatusLabel(status)}`,
       {
-      status
+        from: current.status,
+        to: status,
+        status
       }
     );
     res.json(result);
@@ -1439,12 +1488,43 @@ export class StoppagesController {
     res.json({ data: events });
   };
 
+  addOperationalUpdate = async (req: Request, res: Response) => {
+    const payload = z
+      .object({
+        message: z.string().trim().min(2).max(1200)
+      })
+      .parse(req.body);
+
+    const current = (await this.useCases.getById(req.auth!.tenantId, req.params.id)) as any;
+    if (!current) throw new AppError("Fermo non trovato", 404, "NOT_FOUND");
+
+    const timestamp = new Date().toLocaleString("it-IT");
+    const nextLine = `[${timestamp}] ${payload.message}`;
+    const currentNotes = typeof current.notes === "string" ? current.notes.trim() : "";
+    const nextNotes = currentNotes ? `${currentNotes}\n${nextLine}` : nextLine;
+
+    const updated = await this.useCases.update(req.auth!.tenantId, req.params.id, { notes: nextNotes });
+
+    await this.logEvent(
+      req.auth!.tenantId,
+      req.params.id,
+      req.auth?.userId,
+      "OPERATIONAL_UPDATE",
+      "Aggiornamento operativo registrato",
+      { message: payload.message }
+    );
+
+    res.json(updated);
+  };
+
   workflowTransition = async (req: Request, res: Response) => {
     const payload = z
       .object({
         toStatus: z.enum(["OPEN", "IN_PROGRESS", "WAITING_PARTS", "SOLICITED", "CLOSED", "CANCELED"]),
         note: z.string().max(500).optional(),
-        closureSummary: z.string().optional()
+        closureSummary: z.string().trim().min(3).max(2000).optional(),
+        assignedToUserId: z.preprocess((value) => (value === "" ? null : value), z.string().trim().optional().nullable()),
+        reminderAfterDays: z.number().int().min(1).max(365).optional()
       })
       .parse(req.body);
 
@@ -1452,16 +1532,12 @@ export class StoppagesController {
     if (!current) throw new AppError("Fermo non trovato", 404, "NOT_FOUND");
     if (current.status === payload.toStatus) throw new AppError("Il fermo è già in questo stato", 400, "VALIDATION_ERROR");
 
-    const allowed = this.allowedTransitions[current.status] ?? [];
-    if (!allowed.includes(payload.toStatus)) {
-      throw new AppError(`Transizione non consentita da ${stoppageStatusLabel(current.status)} a ${stoppageStatusLabel(payload.toStatus)}`, 422, "VALIDATION_ERROR");
-    }
-
-    if (payload.toStatus === "CLOSED") {
-      await this.ensureClosureChecklist(req.auth!.tenantId, req.params.id, req.auth?.userId);
-    }
-
-    const updated = await this.useCases.update(req.auth!.tenantId, req.params.id, { status: payload.toStatus });
+    const updated = await this.useCases.update(req.auth!.tenantId, req.params.id, {
+      status: payload.toStatus,
+      ...(payload.closureSummary ? { closureSummary: payload.closureSummary } : {}),
+      ...(payload.assignedToUserId !== undefined ? { assignedToUserId: payload.assignedToUserId } : {}),
+      ...(payload.reminderAfterDays !== undefined ? { reminderAfterDays: payload.reminderAfterDays } : {})
+    });
 
     await this.logEvent(
       req.auth!.tenantId,
@@ -1469,7 +1545,13 @@ export class StoppagesController {
       req.auth?.userId,
       "WORKFLOW_TRANSITION",
       `Transizione workflow: ${stoppageStatusLabel(current.status)} -> ${stoppageStatusLabel(payload.toStatus)}`,
-      { from: current.status, to: payload.toStatus, note: payload.note ?? null }
+      {
+        from: current.status,
+        to: payload.toStatus,
+        note: payload.note ?? null,
+        assignedToUserId: payload.assignedToUserId ?? null,
+        reminderAfterDays: payload.reminderAfterDays ?? null
+      }
     );
 
     res.json(updated);
@@ -1880,22 +1962,63 @@ export class StoppagesController {
       .parse(req.query);
     const dateFrom = query.dateFrom ? new Date(query.dateFrom) : new Date(Date.now() - 90 * 86400000);
     const dateTo = query.dateTo ? new Date(query.dateTo) : new Date();
-    const rows = await this.opsRepository.listCostRows(req.auth!.tenantId, dateFrom, dateTo);
+    const rows = await prisma.stoppage.findMany({
+      where: { tenantId: req.auth!.tenantId, deletedAt: null, openedAt: { gte: dateFrom, lte: dateTo } },
+      include: {
+        site: { select: { name: true } },
+        workshop: { select: { name: true } },
+        vehicle: { select: { id: true, plate: true, currentKm: true } }
+      }
+    });
     const bySite = new Map<string, number>();
     const byWorkshop = new Map<string, number>();
+    const byVehicle = new Map<string, { plate: string; totalCost: number; stoppages: number; totalDaysOpen: number }>();
     const now = new Date();
     let total = 0;
+    let totalDaysOpen = 0;
+    let totalVehicleKm = 0;
     for (const row of rows) {
       const days = Math.max(0, (Number((row.closedAt ?? now)) - Number(row.openedAt)) / 86400000);
       const cost = (row.estimatedCostPerDay ?? 0) * days;
       total += cost;
+      totalDaysOpen += days;
+      totalVehicleKm += Math.max(0, Number(row.vehicle.currentKm ?? 0));
       bySite.set(row.site.name, (bySite.get(row.site.name) ?? 0) + cost);
       byWorkshop.set(row.workshop.name, (byWorkshop.get(row.workshop.name) ?? 0) + cost);
+      const currentByVehicle = byVehicle.get(row.vehicle.id) ?? {
+        plate: row.vehicle.plate,
+        totalCost: 0,
+        stoppages: 0,
+        totalDaysOpen: 0
+      };
+      currentByVehicle.totalCost += cost;
+      currentByVehicle.stoppages += 1;
+      currentByVehicle.totalDaysOpen += days;
+      byVehicle.set(row.vehicle.id, currentByVehicle);
     }
+
+    const avgCostPerOpenDay = totalDaysOpen > 0 ? total / totalDaysOpen : 0;
+    const estimatedCostPerKm = totalVehicleKm > 0 ? total / totalVehicleKm : 0;
+    const topVehicles = Array.from(byVehicle.values())
+      .map((entry) => ({
+        plate: entry.plate,
+        totalCost: Number(entry.totalCost.toFixed(2)),
+        stoppages: entry.stoppages,
+        avgCostPerStoppage: Number((entry.stoppages > 0 ? entry.totalCost / entry.stoppages : 0).toFixed(2)),
+        avgCostPerOpenDay: Number((entry.totalDaysOpen > 0 ? entry.totalCost / entry.totalDaysOpen : 0).toFixed(2))
+      }))
+      .sort((a, b) => b.totalCost - a.totalCost)
+      .slice(0, 12);
+
     res.json({
-      kpis: { estimatedTotalCost: Number(total.toFixed(2)) },
+      kpis: {
+        estimatedTotalCost: Number(total.toFixed(2)),
+        avgCostPerOpenDay: Number(avgCostPerOpenDay.toFixed(2)),
+        estimatedCostPerKm: Number(estimatedCostPerKm.toFixed(4))
+      },
       bySite: Array.from(bySite.entries()).map(([name, cost]) => ({ name, cost: Number(cost.toFixed(2)) })).sort((a, b) => b.cost - a.cost),
-      byWorkshop: Array.from(byWorkshop.entries()).map(([name, cost]) => ({ name, cost: Number(cost.toFixed(2)) })).sort((a, b) => b.cost - a.cost)
+      byWorkshop: Array.from(byWorkshop.entries()).map(([name, cost]) => ({ name, cost: Number(cost.toFixed(2)) })).sort((a, b) => b.cost - a.cost),
+      byVehicle: topVehicles
     });
   };
 
@@ -2073,6 +2196,7 @@ export class StoppagesController {
   };
 
   decideCostApproval = async (req: Request, res: Response) => {
+    this.assertWorkflowManagementRole(req.auth?.roles, "approvare o rifiutare un costo");
     const payload = z
       .object({
         approved: z.boolean(),
@@ -2106,13 +2230,20 @@ export class StoppagesController {
     for (const id of payload.ids) {
       try {
         if (payload.action === "SET_STATUS" && payload.status) {
+          const current = (await this.useCases.getById(req.auth!.tenantId, id)) as any;
+          if (!current) throw new AppError("Fermo non trovato", 404, "NOT_FOUND");
           await this.useCases.update(req.auth!.tenantId, id, { status: payload.status });
           await this.logEvent(
             req.auth!.tenantId,
             id,
             req.auth?.userId,
             "BULK_STATUS",
-            `Stato bulk: ${stoppageStatusLabel(payload.status)}`
+            `Stato bulk: ${stoppageStatusLabel(payload.status)}`,
+            {
+              from: current.status,
+              to: payload.status,
+              status: payload.status
+            }
           );
         }
         if (payload.action === "SET_PRIORITY" && payload.priority) {
@@ -2193,22 +2324,68 @@ export class StoppagesController {
   preventiveDue = async (req: Request, res: Response) => {
     const intervalDays = Number(req.query.intervalDays ?? 180);
     const kmWarning = Number(req.query.kmWarning ?? 500);
+    const dailyKmDefault = Math.max(10, Number(req.query.dailyKmDefault ?? 35));
     const vehicles = await prisma.vehicle.findMany({
       where: { tenantId: req.auth!.tenantId, deletedAt: null, isActive: true },
       include: {
         site: { select: { name: true } },
-        stoppages: { where: { deletedAt: null }, orderBy: { openedAt: "desc" }, take: 1, select: { openedAt: true } }
+        stoppages: { where: { deletedAt: null }, orderBy: { openedAt: "desc" }, take: 1, select: { openedAt: true } },
+        maintenances: {
+          where: { deletedAt: null },
+          orderBy: { performedAt: "desc" },
+          take: 3,
+          select: { performedAt: true, kmAtService: true }
+        }
       }
     });
     const now = new Date();
     const data = vehicles
       .map((vehicle) => {
-        const reference = vehicle.stoppages[0]?.openedAt ?? vehicle.createdAt;
+        const lastMaintenance = vehicle.maintenances[0] ?? null;
+        const previousMaintenance = vehicle.maintenances[1] ?? null;
+        const reference = lastMaintenance?.performedAt ?? vehicle.stoppages[0]?.openedAt ?? vehicle.createdAt;
         const daysFromReference = Math.floor((now.getTime() - reference.getTime()) / 86400000);
         const remaining = intervalDays - daysFromReference;
+        const dueDateByDays = new Date(reference.getTime() + intervalDays * 86400000);
         const currentKm = (vehicle as any).currentKm ?? null;
         const intervalKm = (vehicle as any).maintenanceIntervalKm ?? null;
         const remainingKm = currentKm !== null && intervalKm !== null ? intervalKm - (currentKm % intervalKm) : null;
+
+        const kmDailyFromLatest =
+          currentKm !== null &&
+          lastMaintenance?.kmAtService !== null &&
+          lastMaintenance?.kmAtService !== undefined &&
+          daysFromReference > 0
+            ? Math.max(0, (currentKm - lastMaintenance.kmAtService) / Math.max(1, daysFromReference))
+            : null;
+
+        const kmDailyFromHistory =
+          lastMaintenance?.kmAtService !== null &&
+          lastMaintenance?.kmAtService !== undefined &&
+          previousMaintenance?.kmAtService !== null &&
+          previousMaintenance?.kmAtService !== undefined
+            ? (() => {
+                const daySpan = Math.max(
+                  1,
+                  Math.floor((new Date(lastMaintenance.performedAt).getTime() - new Date(previousMaintenance.performedAt).getTime()) / 86400000)
+                );
+                return Math.max(0, (lastMaintenance.kmAtService - previousMaintenance.kmAtService) / daySpan);
+              })()
+            : null;
+
+        const estimatedDailyKm = (kmDailyFromLatest && kmDailyFromLatest > 0 ? kmDailyFromLatest : null) ??
+          (kmDailyFromHistory && kmDailyFromHistory > 0 ? kmDailyFromHistory : null) ??
+          dailyKmDefault;
+
+        const forecastDaysToKmDue =
+          remainingKm !== null && remainingKm > 0 && estimatedDailyKm > 0
+            ? Math.ceil(remainingKm / estimatedDailyKm)
+            : null;
+        const forecastDueDateByKm =
+          forecastDaysToKmDue !== null
+            ? new Date(now.getTime() + forecastDaysToKmDue * 86400000)
+            : null;
+
         return {
           vehicleId: vehicle.id,
           plate: vehicle.plate,
@@ -2216,24 +2393,33 @@ export class StoppagesController {
           model: vehicle.model,
           site: vehicle.site.name,
           referenceDate: reference.toISOString(),
+          dueDateByDays: dueDateByDays.toISOString(),
           intervalDays,
           remainingDays: remaining,
           dueByDays: remaining <= 0,
+          dueSoonByDays: remaining > 0 && remaining <= 30,
           currentKm,
           maintenanceIntervalKm: intervalKm,
           remainingKm,
+          lastMaintenanceAt: lastMaintenance?.performedAt ? new Date(lastMaintenance.performedAt).toISOString() : null,
+          lastMaintenanceKm: lastMaintenance?.kmAtService ?? null,
+          estimatedDailyKm: Number(estimatedDailyKm.toFixed(2)),
+          forecastDaysToKmDue,
+          forecastDueDateByKm: forecastDueDateByKm ? forecastDueDateByKm.toISOString() : null,
           dueByKm: remainingKm !== null ? remainingKm <= 0 : false,
-          dueSoonByKm: remainingKm !== null ? remainingKm > 0 && remainingKm <= kmWarning : false
+          dueSoonByKm: remainingKm !== null ? remainingKm > 0 && remainingKm <= kmWarning : false,
+          dueSoonByKmForecast: forecastDaysToKmDue !== null ? forecastDaysToKmDue > 0 && forecastDaysToKmDue <= 30 : false
         };
       })
-      .filter((x) => x.remainingDays <= 30 || x.dueByKm || x.dueSoonByKm)
+      .filter((x) => x.remainingDays <= 30 || x.dueByKm || x.dueSoonByKm || x.dueSoonByKmForecast)
       .sort((a, b) => a.remainingDays - b.remainingDays);
     res.json({
       kpis: {
         dueNowDays: data.filter((x) => x.dueByDays).length,
         dueSoonDays: data.filter((x) => !x.dueByDays && x.remainingDays <= 15).length,
         dueNowKm: data.filter((x) => x.dueByKm).length,
-        dueSoonKm: data.filter((x) => x.dueSoonByKm).length
+        dueSoonKm: data.filter((x) => x.dueSoonByKm).length,
+        dueSoonKmForecast30d: data.filter((x) => x.dueSoonByKmForecast).length
       },
       data
     });
