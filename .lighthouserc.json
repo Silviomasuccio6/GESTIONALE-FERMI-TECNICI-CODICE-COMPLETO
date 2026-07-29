@@ -1,13 +1,13 @@
 {
   "ci": {
     "collect": {
-      "startServerCommand": "npm run preview -w frontend -- --host 127.0.0.1 --port 4173",
-      "startServerReadyPattern": "Local:",
+      "startServerCommand": "python3 -m http.server 4173 --bind 127.0.0.1 --directory website/out",
+      "startServerReadyPattern": "Serving HTTP",
       "url": [
         "http://127.0.0.1:4173/",
-        "http://127.0.0.1:4173/software-autonoleggio",
-        "http://127.0.0.1:4173/booking-noleggi",
-        "http://127.0.0.1:4173/report-redditivita-veicolo"
+        "http://127.0.0.1:4173/prodotto/",
+        "http://127.0.0.1:4173/booking-noleggi/",
+        "http://127.0.0.1:4173/gestionale-flotta/"
       ],
       "numberOfRuns": 3,
       "settings": {

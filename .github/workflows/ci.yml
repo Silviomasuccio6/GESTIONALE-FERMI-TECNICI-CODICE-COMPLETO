@@ -216,8 +216,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build -w frontend
+      - name: Build marketing website
+        env:
+          NEXT_PUBLIC_API_URL: https://api.fleetum.it/api
+          NEXT_PUBLIC_SITE_URL: https://fleetum.it
+          NEXT_PUBLIC_APP_LOGIN_URL: https://fleetum.it/login
+          NEXT_PUBLIC_SITE_INDEXABLE: "true"
+        run: npm run build -w website
 
       - name: Run Lighthouse CI
         uses: treosh/lighthouse-ci-action@v12
