@@ -107,6 +107,9 @@ jobs:
       - name: Frontend tests
         run: npx tsx --test frontend/tests/*.test.ts
 
+      - name: Marketing website static export tests
+        run: npm run test:website
+
       - name: Public SEO artifacts smoke
         run: |
           test -f frontend/public/robots.txt
@@ -115,9 +118,22 @@ jobs:
           test -f frontend/public/brand/fleetum-social-preview.png
           grep -q "fleetum.it/demo" frontend/public/sitemap.xml
           npm run verify:prerender -w frontend
+          test -f website/out/index.html
+          test -f website/out/demo/index.html
+          test -f website/out/robots.txt
+          test -f website/out/sitemap.xml
+          grep -q "fleetum.it/demo" website/out/sitemap.xml
+
+      - name: Validate Caddy routing
+        run: |
+          docker run --rm \
+            -e CADDY_EMAIL=ci@example.invalid \
+            -v "${{ github.workspace }}/deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile
 
       - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        run: npm run audit:production
 
   tenant-isolation:
     name: Tenant Isolation HTTP Gate
@@ -200,8 +216,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build -w frontend
+      - name: Build marketing website
+        env:
+          NEXT_PUBLIC_API_URL: https://api.fleetum.it/api
+          NEXT_PUBLIC_SITE_URL: https://fleetum.it
+          NEXT_PUBLIC_APP_LOGIN_URL: https://fleetum.it/login
+          NEXT_PUBLIC_SITE_INDEXABLE: "true"
+        run: npm run build -w website
 
       - name: Run Lighthouse CI
         uses: treosh/lighthouse-ci-action@v12

@@ -7,25 +7,37 @@ ARG VITE_API_BASE_URL
 ARG VITE_PLATFORM_API_BASE_URL
 ARG VITE_CLIENT_APP_URL
 ARG VITE_GOOGLE_AUTH_URL
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_APP_LOGIN_URL
+ARG NEXT_PUBLIC_SITE_INDEXABLE
 
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_PLATFORM_API_BASE_URL=$VITE_PLATFORM_API_BASE_URL
 ENV VITE_CLIENT_APP_URL=$VITE_CLIENT_APP_URL
 ENV VITE_GOOGLE_AUTH_URL=$VITE_GOOGLE_AUTH_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_APP_LOGIN_URL=$NEXT_PUBLIC_APP_LOGIN_URL
+ENV NEXT_PUBLIC_SITE_INDEXABLE=$NEXT_PUBLIC_SITE_INDEXABLE
 
 COPY package.json package-lock.json ./
 COPY frontend/package.json frontend/package.json
+COPY website/package.json website/package.json
 COPY packages/commercial-plan-catalog/package.json packages/commercial-plan-catalog/package.json
 
-RUN npm ci --workspace frontend
+RUN npm ci --workspace frontend --workspace website
 
 COPY frontend frontend
+COPY website website
 COPY packages/commercial-plan-catalog packages/commercial-plan-catalog
 
-RUN npm run build -w frontend
+RUN npm run build -w frontend && npm run build -w website
 
 FROM caddy:2-alpine AS runtime
 
 COPY --from=build /app/frontend/dist /srv/fleetum
+COPY --from=build /app/website/out /srv/fleetum-website
+COPY --from=build /app/website/out/brand/ /srv/fleetum/brand/
 
 EXPOSE 80 443

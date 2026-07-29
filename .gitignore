@@ -16,6 +16,8 @@ uploads
 backend/uploads
 frontend/dist
 backend/dist
+website/.next
+website/out
 *.log
 logs
 backups/
