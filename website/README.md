@@ -22,8 +22,14 @@ npm run verify:website
 ```
 
 The production export is generated in `website/out`. The test suite checks that
-the required public pages, metadata, `robots.txt`, `sitemap.xml`, and static
-assets are present.
+the required public pages, canonical metadata, structured data, `robots.txt`,
+`sitemap.xml`, pricing and static assets are present.
+
+## Pricing
+
+Public prices are imported from `packages/commercial-plan-catalog`. Never copy
+plan amounts or the annual discount into website components: update the shared
+catalog first, then verify the corresponding Stripe Price IDs.
 
 ## Environment variables
 
@@ -46,4 +52,9 @@ The production image contains two independent roots:
 
 `deploy/caddy/Caddyfile` sends only the explicit public route allowlist to the
 marketing root. Application routes such as `/login`, `/dashboard`, and
-`/booking` continue to use the existing SPA.
+`/booking` continue to use the existing SPA and receive `noindex` headers.
+`platform.fleetum.it` is also excluded from search indexing.
+
+Search Console activation is documented in
+`docs/seo/search-console-setup.md`. Public legal drafts remain out of the
+sitemap until the professional review gate is complete.

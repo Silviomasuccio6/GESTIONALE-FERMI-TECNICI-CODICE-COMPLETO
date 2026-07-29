@@ -1,5 +1,16 @@
+import {
+  ANNUAL_DISCOUNT_PERCENT,
+  COMMERCIAL_PLAN_CATALOG,
+} from "@fleetum/commercial-plan-catalog";
+
 export const publicOrigin =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://fleetum.it";
+
+export const publicPageUrl = (path: string) => {
+  const normalizedPath =
+    path === "/" ? "" : `/${path.replace(/^\/+|\/+$/g, "")}`;
+  return `${publicOrigin}${normalizedPath}/`;
+};
 
 export const appLoginUrl =
   process.env.NEXT_PUBLIC_APP_LOGIN_URL?.trim() || "https://fleetum.it/login";
@@ -117,10 +128,14 @@ export const modules = [
   },
 ];
 
+export const annualDiscountPercent = ANNUAL_DISCOUNT_PERCENT;
+
 export const plans = [
   {
+    code: COMMERCIAL_PLAN_CATALOG.STARTER.code,
     name: "Starter",
-    price: "149",
+    price: String(COMMERCIAL_PLAN_CATALOG.STARTER.monthlyPriceCents / 100),
+    annualPrice: COMMERCIAL_PLAN_CATALOG.STARTER.yearlyPriceCents / 100,
     description: "Per piccoli autonoleggi che vogliono uscire da fogli e chat.",
     features: [
       "Booking e flotta",
@@ -130,8 +145,10 @@ export const plans = [
     ],
   },
   {
+    code: COMMERCIAL_PLAN_CATALOG.PRO.code,
     name: "Pro",
-    price: "199",
+    price: String(COMMERCIAL_PLAN_CATALOG.PRO.monthlyPriceCents / 100),
+    annualPrice: COMMERCIAL_PLAN_CATALOG.PRO.yearlyPriceCents / 100,
     description: "Per team che gestiscono noleggi e contratti ogni giorno.",
     featured: true,
     features: [
@@ -142,8 +159,10 @@ export const plans = [
     ],
   },
   {
+    code: COMMERCIAL_PLAN_CATALOG.ENTERPRISE.code,
     name: "Enterprise",
-    price: "249",
+    price: String(COMMERCIAL_PLAN_CATALOG.ENTERPRISE.monthlyPriceCents / 100),
+    annualPrice: COMMERCIAL_PLAN_CATALOG.ENTERPRISE.yearlyPriceCents / 100,
     description:
       "Per aziende multi-sede con governance e processi complessi.",
     features: [

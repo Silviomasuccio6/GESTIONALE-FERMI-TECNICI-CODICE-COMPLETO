@@ -6,6 +6,7 @@ import {
   SiteFooter,
   SiteHeader,
 } from "../../components/site-chrome";
+import { WebPageJsonLd } from "../../components/web-page-json-ld";
 import { buildMetadata } from "../../lib/seo";
 
 export const metadata: Metadata = buildMetadata({
@@ -27,6 +28,11 @@ const journey = [
 export default function ProductPage() {
   return (
     <>
+      <WebPageJsonLd
+        name="Software gestionale per autonoleggio Fleetum"
+        description="Scopri come Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni e KPI in un unico flusso operativo."
+        path="/prodotto"
+      />
       <SiteHeader />
       <main id="main-content" className="detail-page">
         <section className="detail-hero product-hero">

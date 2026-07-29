@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Breadcrumbs } from "../../components/breadcrumbs";
 import { PageCta, SiteFooter, SiteHeader } from "../../components/site-chrome";
+import { WebPageJsonLd } from "../../components/web-page-json-ld";
 import { modules } from "../../lib/site-data";
 import { buildMetadata } from "../../lib/seo";
 
@@ -14,6 +15,11 @@ export const metadata: Metadata = buildMetadata({
 export default function ModulesPage() {
   return (
     <>
+      <WebPageJsonLd
+        name="Moduli per booking, contratti e gestione flotta"
+        description="Tutti i moduli Fleetum: booking, contratti digitali, clienti, veicoli, scadenze, manutenzioni, listini e dashboard KPI."
+        path="/moduli"
+      />
       <SiteHeader />
       <main id="main-content" className="detail-page">
         <section className="detail-hero modules-hero">

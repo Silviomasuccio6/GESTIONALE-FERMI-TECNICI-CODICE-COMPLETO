@@ -1,11 +1,12 @@
 import type { LandingPageData } from "../lib/landing-pages";
-import { publicOrigin } from "../lib/site-data";
+import { publicOrigin, publicPageUrl } from "../lib/site-data";
 import { Breadcrumbs } from "./breadcrumbs";
 import { JsonLd } from "./json-ld";
 import { PageCta, SiteFooter, SiteHeader } from "./site-chrome";
 
 export function SeoLandingPage({ page }: { page: LandingPageData }) {
   const path = `/${page.slug}`;
+  const url = publicPageUrl(path);
 
   return (
     <>
@@ -15,8 +16,8 @@ export function SeoLandingPage({ page }: { page: LandingPageData }) {
           "@graph": [
             {
               "@type": "WebPage",
-              "@id": `${publicOrigin}${path}#webpage`,
-              url: `${publicOrigin}${path}`,
+              "@id": `${url}#webpage`,
+              url,
               name: page.title,
               description: page.description,
               inLanguage: "it-IT",

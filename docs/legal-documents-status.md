@@ -9,7 +9,7 @@ review_type:
   - privacy
   - tax
   - security
-last_updated: "2026-05-24"
+last_updated: "2026-07-29"
 applicability: "Internal Status"
 ---
 
@@ -30,6 +30,16 @@ applicability: "Internal Status"
 | Rental Templates | Contratto, condizioni, check-in/out, danni, privacy, GPS, pagamenti | draft | legal/privacy/tax/security | Creato |
 | Fiscal/Admin | Billing, Stripe, tax, invoice, accounting export | draft | tax/legal/security | Creato |
 | Trust Center | Index, security, privacy, status, vuln disclosure, FAQ | draft | legal/privacy/security | Creato |
+| Website pubblico | Privacy, Cookie, Termini e DPA | draft/noindex | legal/privacy/tax/security | Gate di pubblicazione in `legal/fleetum-saas/website-publication-review-checklist.md` |
+
+## Gate sito pubblico
+
+- Le pagine legali sono raggiungibili per trasparenza operativa, ma mostrano
+  chiaramente lo stato di bozza.
+- Sono escluse dalla sitemap e protette con `noindex`.
+- Diventeranno indicizzabili solo dopo revisione professionale, versionamento e
+  sostituzione dei dati societari definitivi.
+- Nessun documento e dichiarato legalmente valido prima delle approvazioni.
 
 TODO_LEGAL_REVIEW: assegnare owner e scadenza revisione.
 TODO_PRIVACY_REVIEW: collegare documenti a DPA, RoPA e retention.

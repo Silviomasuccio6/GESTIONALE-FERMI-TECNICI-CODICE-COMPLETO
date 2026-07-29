@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { isIndexable, publicOrigin } from "./site-data";
+import { isIndexable, publicOrigin, publicPageUrl } from "./site-data";
 
 type MetadataInput = {
   title: string;
@@ -14,7 +14,7 @@ export function buildMetadata({
   path,
   index = true,
 }: MetadataInput): Metadata {
-  const url = `${publicOrigin}${path === "/" ? "" : path}`;
+  const url = publicPageUrl(path);
   const image = `${publicOrigin}/brand/fleetum-social-preview.png`;
   const shouldIndex = isIndexable && index;
   const shouldFollow = isIndexable;

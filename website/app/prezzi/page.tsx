@@ -8,6 +8,7 @@ import {
 } from "../../components/site-chrome";
 import { PricingExperience } from "../../components/pricing-experience";
 import { RoiCalculator } from "../../components/roi-calculator";
+import { WebPageJsonLd } from "../../components/web-page-json-ld";
 import { faqs, plans, publicOrigin } from "../../lib/site-data";
 import { buildMetadata } from "../../lib/seo";
 
@@ -21,6 +22,11 @@ export const metadata: Metadata = buildMetadata({
 export default function PricingPage() {
   return (
     <>
+      <WebPageJsonLd
+        name="Prezzi software autonoleggio Fleetum"
+        description="Confronta i piani Fleetum Starter, Pro ed Enterprise, i prezzi IVA inclusa e le condizioni della prova."
+        path="/prezzi"
+      />
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -34,6 +40,14 @@ export default function PricingPage() {
             price: plan.price,
             priceCurrency: "EUR",
             availability: "https://schema.org/OnlineOnly",
+            url: `${publicOrigin}/prezzi`,
+            priceSpecification: {
+              "@type": "UnitPriceSpecification",
+              price: plan.price,
+              priceCurrency: "EUR",
+              billingDuration: "P1M",
+              valueAddedTaxIncluded: true,
+            },
           })),
         }}
       />

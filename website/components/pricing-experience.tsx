@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { plans } from "../lib/site-data";
+import {
+  annualDiscountPercent,
+  plans,
+} from "../lib/site-data";
 import { Arrow } from "./site-chrome";
 
 type BillingCycle = "monthly" | "annual";
@@ -19,10 +22,6 @@ const comparisonRows = [
   ["Automazioni e integrazioni", false, false, true],
 ] as const;
 
-function annualPrice(monthlyPrice: string) {
-  return Number(monthlyPrice) * 12 * 0.85;
-}
-
 function formatPrice(value: number, digits = 0) {
   return new Intl.NumberFormat("it-IT", {
     minimumFractionDigits: digits,
@@ -37,8 +36,7 @@ export function PricingExperience() {
     () =>
       plans.map((plan) => ({
         ...plan,
-        annual: annualPrice(plan.price),
-        monthlyEquivalent: annualPrice(plan.price) / 12,
+        monthlyEquivalent: plan.annualPrice / 12,
       })),
     [],
   );
@@ -58,13 +56,13 @@ export function PricingExperience() {
           aria-pressed={isAnnual}
           onClick={() => setBilling("annual")}
         >
-          Annuale <span>−15%</span>
+          Annuale <span>−{annualDiscountPercent}%</span>
         </button>
       </div>
 
       <p className="billing-condition" aria-live="polite">
         {isAnnual
-          ? "Fatturazione annuale anticipata con sconto del 15%. Importi IVA inclusa."
+          ? `Fatturazione annuale anticipata con sconto del ${annualDiscountPercent}%. Importi IVA inclusa.`
           : "Fatturazione mensile. Puoi valutare il piano durante 14 giorni di prova."}
       </p>
 
@@ -88,7 +86,7 @@ export function PricingExperience() {
             <small className="vat-label">IVA inclusa</small>
             {isAnnual && (
               <small className="annual-total">
-                {formatPrice(plan.annual, 2)} € fatturati ogni anno
+                {formatPrice(plan.annualPrice, 2)} € fatturati ogni anno
               </small>
             )}
             <p>{plan.description}</p>

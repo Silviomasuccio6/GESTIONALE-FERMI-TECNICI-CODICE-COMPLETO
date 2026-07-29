@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Breadcrumbs } from "../../components/breadcrumbs";
 import { PageCta, SiteFooter, SiteHeader } from "../../components/site-chrome";
+import { WebPageJsonLd } from "../../components/web-page-json-ld";
 import { securityItems } from "../../lib/site-data";
 import { buildMetadata } from "../../lib/seo";
 
@@ -15,6 +16,11 @@ export const metadata: Metadata = buildMetadata({
 export default function SecurityPage() {
   return (
     <>
+      <WebPageJsonLd
+        name="Sicurezza, privacy e continuità operativa Fleetum"
+        description="Scopri l’approccio Fleetum a workspace, ruoli, audit, documenti, backup e processi privacy per il gestionale autonoleggio."
+        path="/sicurezza"
+      />
       <SiteHeader />
       <main id="main-content" className="detail-page">
         <section className="detail-hero security-page-hero">
