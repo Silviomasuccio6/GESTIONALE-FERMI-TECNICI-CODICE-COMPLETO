@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Breadcrumbs } from "../../components/breadcrumbs";
 import { PageCta, SiteFooter, SiteHeader } from "../../components/site-chrome";
+import { WebPageJsonLd } from "../../components/web-page-json-ld";
 import { buildMetadata } from "../../lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Chi siamo",
+  title: "Chi siamo: il progetto Fleetum",
   description:
     "Fleetum progetta un sistema operativo per rendere più leggibile e controllabile il lavoro quotidiano di autonoleggi e flotte.",
   path: "/chi-siamo",
@@ -13,6 +14,11 @@ export const metadata: Metadata = buildMetadata({
 export default function AboutPage() {
   return (
     <>
+      <WebPageJsonLd
+        name="Chi siamo: il progetto Fleetum"
+        description="Fleetum progetta un sistema operativo per rendere più leggibile e controllabile il lavoro quotidiano di autonoleggi e flotte."
+        path="/chi-siamo"
+      />
       <SiteHeader />
       <main id="main-content" className="detail-page">
         <section className="detail-hero about-hero">

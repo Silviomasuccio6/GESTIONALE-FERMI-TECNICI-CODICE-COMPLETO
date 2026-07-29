@@ -79,6 +79,7 @@ fleetum.it, www.fleetum.it {
 
 		# Login, onboarding and tenant routes remain on the existing Fleetum SPA.
 		handle {
+			header X-Robots-Tag "noindex, nofollow, noarchive"
 			root * /srv/fleetum
 			try_files {path} /spa.html
 			file_server
@@ -89,6 +90,7 @@ fleetum.it, www.fleetum.it {
 api.fleetum.it {
 	import security_headers
 	encode zstd gzip
+	header X-Robots-Tag "noindex, nofollow, noarchive"
 
 	route /api/* {
 		reverse_proxy backend:4000
@@ -102,6 +104,7 @@ platform.fleetum.it {
 	import frontend_cache_headers
 	import secure_error_responses
 	encode zstd gzip
+	header X-Robots-Tag "noindex, nofollow, noarchive"
 
 	route /platform-api/* {
 		reverse_proxy backend:4100

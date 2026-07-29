@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { publicOrigin } from "../lib/site-data";
+import { publicPageUrl } from "../lib/site-data";
 
 export const dynamic = "force-static";
 
@@ -22,7 +22,7 @@ const routes = [
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return routes.map((route, index) => ({
-    url: `${publicOrigin}${route}`,
+    url: publicPageUrl(route || "/"),
     changeFrequency: index === 0 ? "weekly" : "monthly",
     priority: index === 0 ? 1 : route === "/demo" ? 0.9 : 0.8,
   }));

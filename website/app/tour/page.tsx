@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "../../components/breadcrumbs";
 import { ProductTour } from "../../components/product-tour";
 import { SiteFooter, SiteHeader } from "../../components/site-chrome";
+import { WebPageJsonLd } from "../../components/web-page-json-ld";
 import { buildMetadata } from "../../lib/seo";
 
 export const metadata: Metadata = buildMetadata({
@@ -14,6 +15,11 @@ export const metadata: Metadata = buildMetadata({
 export default function TourPage() {
   return (
     <>
+      <WebPageJsonLd
+        name="Demo interattiva del gestionale Fleetum"
+        description="Esplora booking, contratti, scadenze e KPI del gestionale Fleetum con dati dimostrativi."
+        path="/tour"
+      />
       <SiteHeader />
       <main id="main-content" className="detail-page">
         <section className="tour-page">

@@ -4293,7 +4293,7 @@ img {
 }
 
 .cookie-banner a {
-  min-height: 36px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   color: var(--blue-700);

@@ -1,54 +1,63 @@
-# Fleetum Landing SEO Checklist
+# Fleetum Website SEO Checklist
 
-## Rendering Strategy
+## Rendering
 
-- [x] La landing resta SPA Vite per mantenere semplicità operativa.
-- [x] I meta tag runtime sono gestiti con `react-helmet-async`.
-- [x] `index.html` contiene fallback statici per crawler e anteprime social.
-- [ ] Valutare prerender statico delle sole pagine pubbliche se Search Console mostra indexing lento.
-- [ ] Valutare SSR solo se la landing diventa contenuto editoriale complesso o multi-lingua spinta.
+- [x] Le pagine marketing sono generate come HTML statico con Next.js.
+- [x] Le pagine pubbliche hanno contenuto indicizzabile senza eseguire JavaScript.
+- [x] Gestionale tenant e Platform Console restano SPA separate.
+- [x] La demo pubblica usa l'API Fleetum esistente e non espone segreti.
 
-## Meta Tag
+## Metadata e discovery
 
-- [x] Title.
-- [x] Description.
-- [x] Canonical URL.
-- [x] Open Graph title/description/url/image.
-- [x] Twitter card.
-- [x] JSON-LD SoftwareApplication.
-- [x] JSON-LD FAQ per pagine verticali.
-- [x] JSON-LD Breadcrumb per pagine verticali.
+- [x] Title e description unici.
+- [x] Canonical assoluto per ogni pagina indicizzabile.
+- [x] Open Graph e Twitter card.
+- [x] Immagine social 1200x630.
+- [x] Favicon light/dark 64x64 e Apple touch icon 180x180.
+- [x] `robots.txt`.
+- [x] `sitemap.xml` con sole pagine pubbliche canoniche.
+- [x] `llms.txt`.
+- [x] Redirect 308 dalle precedenti rotte SEO.
 
-## Performance
+## Dati strutturati
 
-- [x] Route tenant principali in `React.lazy`.
-- [x] `Suspense` con `PageLoader`.
-- [x] Auth e landing non lazy per primo render rapido.
-- [x] Prefetch post-login di dashboard, booking e veicoli.
-- [x] `manualChunks` Vite per React, charts, forms, UI icons e HTTP.
-- [x] Warning chunk Vite a 500 KB.
+- [x] `Organization`.
+- [x] `WebSite`.
+- [x] `SoftwareApplication`.
+- [x] `WebPage` sulle pagine indicizzabili.
+- [x] `Product` e offerte mensili sulla pagina prezzi.
+- [x] `BreadcrumbList` sulle pagine interne.
+- [x] `FAQPage` solo dove le domande sono visibili nella pagina.
 
-## Tailwind
+## Prezzi e claim
 
-- [x] `content[]` include `index.html`.
-- [x] `content[]` include `platform.html`.
-- [x] `content[]` include `src/**/*.{ts,tsx}`.
-- [x] Tailwind v3 purge/content scan attivo via build production.
-- [x] `@tailwindcss/typography` non installato perché non risultano contenuti markdown/prose nel frontend.
+- [x] Starter, Pro ed Enterprise derivano dal catalogo commerciale condiviso.
+- [x] Prezzi mensili: 149 EUR, 199 EUR e 249 EUR, IVA inclusa.
+- [x] Prezzi annuali derivati dallo sconto condiviso del 15%.
+- [x] Test automatici impediscono la ricomparsa del vecchio prezzo 129 EUR.
+- [x] I claim funzionali sono mappati a implementazioni reali.
+- [x] I claim dipendenti da configurazioni esterne sono qualificati.
 
-## Lighthouse CI
+## Privacy e indicizzazione
 
-- [x] Lighthouse CI aggiunto al workflow.
-- [x] Target operativo: Performance 85, SEO 95, Accessibility 90.
-- [x] Gate CI: Performance sotto 85 fallisce, quindi anche sotto 70.
-- [x] SEO sotto 95 fallisce.
-- [x] Accessibility sotto 90 fallisce.
-- [x] Report caricati come artifact GitHub Actions.
+- [x] Analytics first-party attivi solo dopo consenso Analytics.
+- [x] Do Not Track rispettato dal client pubblico.
+- [x] Login e gestionale ricevono `noindex`.
+- [x] Platform Console riceve meta robots e `X-Robots-Tag`.
+- [x] API riceve `X-Robots-Tag`.
+- [x] Bozze Privacy, Cookie, Termini e DPA restano `noindex`.
 
-## Prossimi Step SEO
+## Performance e accessibilita
 
-- [ ] Aggiungere immagini Open Graph dedicate, dimensione consigliata 1200x630.
-- [ ] Collegare Search Console e monitorare coverage/indexing.
-- [ ] Aggiungere pagine verticali per città/segmenti solo con contenuto reale, non doorway pages.
-- [ ] Misurare Core Web Vitals reali in produzione.
-- [ ] Valutare prerender statico delle pagine pubbliche se i crawler non eseguono correttamente la SPA.
+- [x] Immagini brand ottimizzate e dimensionate.
+- [x] Asset Next con cache immutabile.
+- [x] Link del cookie banner con target minimo 44px.
+- [x] Lighthouse CI: Performance >= 85, SEO >= 95, Accessibility >= 90.
+- [ ] Monitorare Core Web Vitals reali in Search Console dopo l'indicizzazione.
+
+## Attivazioni esterne
+
+- [ ] Verificare la proprieta Dominio `fleetum.it` in Search Console.
+- [ ] Inviare e verificare `https://fleetum.it/sitemap.xml`.
+- [ ] Ottenere approvazione professionale dei documenti legali.
+- [ ] Solo dopo l'approvazione, rimuovere `noindex` dalle pagine legali.

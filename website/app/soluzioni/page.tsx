@@ -6,6 +6,7 @@ import {
   SiteFooter,
   SiteHeader,
 } from "../../components/site-chrome";
+import { WebPageJsonLd } from "../../components/web-page-json-ld";
 import { buildMetadata } from "../../lib/seo";
 
 export const metadata: Metadata = buildMetadata({
@@ -73,6 +74,11 @@ const operatingModels = [
 export default function SolutionsPage() {
   return (
     <>
+      <WebPageJsonLd
+        name="Soluzioni per autonoleggi e gestione flotta"
+        description="Esplora le soluzioni Fleetum per booking noleggi, contratti digitali, gestione flotta, scadenze e manutenzione."
+        path="/soluzioni"
+      />
       <SiteHeader />
       <main id="main-content" className="detail-page">
         <section className="detail-hero solutions-hero">

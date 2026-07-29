@@ -5,7 +5,8 @@ import {
   SiteFooter,
   SiteHeader,
 } from "../components/site-chrome";
-import { faqs, publicOrigin } from "../lib/site-data";
+import { WebPageJsonLd } from "../components/web-page-json-ld";
+import { faqs, plans, publicOrigin } from "../lib/site-data";
 
 const frictionPoints = [
   {
@@ -51,43 +52,6 @@ const modules = [
   ["08", "Dashboard KPI", "Ricavi, occupazione, contratti e rientri in una vista."],
 ];
 
-const plans = [
-  {
-    name: "Starter",
-    price: "149",
-    description: "Per piccoli autonoleggi che vogliono uscire da fogli e chat.",
-    features: [
-      "Booking e flotta",
-      "Clienti e contratti",
-      "Dashboard operativa",
-      "Scadenze principali",
-    ],
-  },
-  {
-    name: "Pro",
-    price: "199",
-    description: "Per team che gestiscono flotta e contratti ogni giorno.",
-    featured: true,
-    features: [
-      "Flussi contrattuali evoluti",
-      "Manutenzioni e listini",
-      "Statistiche e alert",
-      "Operatività avanzata",
-    ],
-  },
-  {
-    name: "Enterprise",
-    price: "249",
-    description: "Per aziende con più sedi, processi e governance.",
-    features: [
-      "Controllo multi-sede",
-      "Governance avanzata",
-      "Automazioni e integrazioni",
-      "Supporto prioritario",
-    ],
-  },
-];
-
 const BookingPlanner = () => (
   <div className="planner" aria-label="Anteprima del calendario booking Fleetum">
     <div className="planner-head">
@@ -128,6 +92,11 @@ const BookingPlanner = () => (
 export default function Home() {
   return (
     <>
+      <WebPageJsonLd
+        name="Fleetum — Il sistema operativo per autonoleggi moderni"
+        description="Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni, scadenze e KPI in un'unica control room."
+        path="/"
+      />
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -145,6 +114,13 @@ export default function Home() {
             price: plan.price,
             priceCurrency: "EUR",
             url: `${publicOrigin}/prezzi`,
+            priceSpecification: {
+              "@type": "UnitPriceSpecification",
+              price: plan.price,
+              priceCurrency: "EUR",
+              billingDuration: "P1M",
+              valueAddedTaxIncluded: true,
+            },
           })),
         }}
       />
@@ -539,6 +515,7 @@ export default function Home() {
                     <strong>{plan.price}</strong>
                     <span>/mese</span>
                   </div>
+                  <small className="vat-label">IVA inclusa</small>
                   <p>{plan.description}</p>
                   <ul>
                     {plan.features.map((feature) => (

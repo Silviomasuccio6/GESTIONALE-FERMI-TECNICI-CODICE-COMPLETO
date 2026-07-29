@@ -1,4 +1,4 @@
-import { publicOrigin } from "../lib/site-data";
+import { publicPageUrl } from "../lib/site-data";
 import { JsonLd } from "./json-ld";
 
 type BreadcrumbItem = {
@@ -19,7 +19,7 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
             "@type": "ListItem",
             position: index + 1,
             name: item.label,
-            item: `${publicOrigin}${item.href === "/" ? "" : item.href}`,
+            item: publicPageUrl(item.href),
           })),
         }}
       />

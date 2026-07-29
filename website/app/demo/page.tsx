@@ -2,18 +2,24 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "../../components/breadcrumbs";
 import { DemoForm } from "../../components/demo-form";
 import { SiteFooter, SiteHeader } from "../../components/site-chrome";
+import { WebPageJsonLd } from "../../components/web-page-json-ld";
 import { buildMetadata } from "../../lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Richiedi una demo",
+  title: "Demo gestionale autonoleggio",
   description:
-    "Richiedi una demo Fleetum costruita su sedi, flotta, processi e priorità reali del tuo autonoleggio.",
+    "Richiedi una demo Fleetum costruita su sedi, flotta, processi, booking, contratti e priorità reali del tuo autonoleggio.",
   path: "/demo",
 });
 
 export default function DemoPage() {
   return (
     <>
+      <WebPageJsonLd
+        name="Demo gestionale autonoleggio Fleetum"
+        description="Richiedi una demo Fleetum costruita su sedi, flotta, processi, booking, contratti e priorità reali del tuo autonoleggio."
+        path="/demo"
+      />
       <SiteHeader />
       <main id="main-content" className="detail-page">
         <section className="demo-page">

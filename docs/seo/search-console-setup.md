@@ -1,38 +1,93 @@
 # Google Search Console - Fleetum
 
-## Obiettivo
+## Stato
 
-Collegare il dominio pubblico `fleetum.it` a Google Search Console per monitorare indicizzazione, query organiche, errori e Core Web Vitals reali.
+Il repository e il sito sono pronti per Search Console:
 
-## Configurazione consigliata
+- `https://fleetum.it/robots.txt` risponde e indica la sitemap;
+- `https://fleetum.it/sitemap.xml` contiene esclusivamente le 14 pagine pubbliche canoniche;
+- login, gestionale, Platform Console e bozze legali sono esclusi dall'indice;
+- canonical, Open Graph e dati strutturati sono emessi nell'HTML statico.
+
+La verifica della proprieta e l'invio effettivo della sitemap richiedono accesso
+all'account Google e al DNS del dominio. Queste due operazioni non possono essere
+dichiarate completate sulla sola base del codice.
+
+## Proprieta consigliata
 
 1. Aprire [Google Search Console](https://search.google.com/search-console/).
-2. Selezionare **Aggiungi proprieta'** e scegliere **Dominio**.
-3. Inserire `fleetum.it`, senza `https://` e senza prefissi come `www`.
-4. Copiare il record TXT mostrato da Google.
-5. Nel provider DNS che gestisce `fleetum.it`, creare il record TXT richiesto sul dominio radice.
-6. Tornare in Search Console e selezionare **Verifica**.
+2. Selezionare **Aggiungi proprieta**.
+3. Scegliere **Dominio**, non "Prefisso URL".
+4. Inserire `fleetum.it`, senza protocollo o percorso.
+5. Copiare il record TXT fornito da Google.
+6. Aggiungerlo al DNS del dominio radice.
+7. Tornare in Search Console e selezionare **Verifica**.
 
-Una proprieta' di tipo Dominio copre `fleetum.it`, `www.fleetum.it` e tutti i sottodomini, incluso `api.fleetum.it`. Non inserire il valore TXT nel repository o nei file environment.
+La proprieta Dominio copre `fleetum.it`, `www.fleetum.it` e i sottodomini.
+Il valore TXT non deve essere inserito nel repository o nei file environment.
 
-## Dopo la verifica
+## Invio sitemap
 
-1. Aprire **Sitemap** e inviare `https://fleetum.it/sitemap.xml`.
-2. Usare **Controllo URL** per richiedere l'indicizzazione di:
-   - `https://fleetum.it/`
-   - `https://fleetum.it/software-autonoleggio`
-   - `https://fleetum.it/prezzi`
-   - `https://fleetum.it/demo`
-3. Controllare entro le settimane successive **Pagine**, **Esperienza** e **Rendimento**.
-4. Configurare un report mensile sulle query che contengono termini come `software autonoleggio`, `gestionale noleggio auto` e `gestionale rent a car`.
+Dopo la verifica:
 
-## Verifica post-deploy
+1. aprire **Indicizzazione > Sitemap**;
+2. inviare `https://fleetum.it/sitemap.xml`;
+3. verificare che lo stato diventi **Operazione riuscita**;
+4. registrare owner, data e screenshot/evidenza nella checklist di rilascio.
 
-Le seguenti risorse devono rispondere `200` e contenere contenuto reale, non il fallback della SPA:
+Non usare la Google Indexing API per pagine SaaS ordinarie: non e lo strumento
+previsto per questo tipo di contenuto.
 
-- `https://fleetum.it/robots.txt`
-- `https://fleetum.it/sitemap.xml`
-- `https://fleetum.it/llms.txt`
-- `https://fleetum.it/brand/fleetum-social-preview.png`
+## URL prioritari
 
-Per aggiornare la sitemap in futuro, modificare solo URL pubblici canonici e impostare `lastmod` alla data di modifica effettiva della pagina.
+Usare **Controllo URL** per verificare e, se necessario, richiedere l'indicizzazione di:
+
+- `https://fleetum.it/`
+- `https://fleetum.it/prodotto`
+- `https://fleetum.it/booking-noleggi`
+- `https://fleetum.it/contratti-digitali`
+- `https://fleetum.it/gestionale-flotta`
+- `https://fleetum.it/prezzi`
+- `https://fleetum.it/demo`
+
+Le vecchie rotte `/software-autonoleggio`, `/software-rent-a-car`,
+`/contratti-noleggio-digitali` e `/report-redditivita-veicolo` sono redirect
+permanenti e non devono essere inviate come URL canonici.
+
+## Verifica aree private
+
+Usare **Controllo URL** anche su un campione di URL privati e confermare che non
+siano indicizzabili:
+
+- `https://fleetum.it/login`
+- `https://fleetum.it/dashboard`
+- `https://platform.fleetum.it/`
+
+Il risultato atteso e `noindex` tramite meta tag e/o header `X-Robots-Tag`.
+
+## Monitoraggio
+
+Ogni settimana nel primo mese, poi mensilmente:
+
+- pagine indicizzate ed escluse;
+- errori sitemap e canonical;
+- query, impression, click e CTR;
+- Core Web Vitals reali;
+- azioni manuali e problemi di sicurezza;
+- pagine con impression ma CTR basso;
+- conversioni organiche confrontate con gli eventi first-party Fleetum.
+
+## Accesso API opzionale
+
+Gli strumenti SEO locali possono leggere Search Console solo dopo aver
+configurato credenziali Google autorizzate fuori dal repository. Il file locale
+previsto e `~/.config/codex-seo/google-api.json`; non deve mai essere committato.
+
+## Evidenza di completamento
+
+- [ ] Proprieta Dominio `fleetum.it` verificata.
+- [ ] Sitemap inviata e accettata.
+- [ ] URL prioritari controllati.
+- [ ] Login, dashboard e Platform Console risultano non indicizzabili.
+- [ ] Owner operativo assegnato.
+- [ ] Data ultima verifica registrata: `________________`.
