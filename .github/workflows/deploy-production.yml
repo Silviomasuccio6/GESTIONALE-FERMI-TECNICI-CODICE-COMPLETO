@@ -124,6 +124,10 @@ jobs:
             VITE_CLIENT_APP_URL=https://fleetum.it/dashboard
             VITE_GOOGLE_AUTH_URL=https://api.fleetum.it/api/auth/google
             VITE_APPLE_AUTH_URL=https://api.fleetum.it/api/auth/apple
+            NEXT_PUBLIC_API_URL=https://api.fleetum.it/api
+            NEXT_PUBLIC_SITE_URL=https://fleetum.it
+            NEXT_PUBLIC_APP_LOGIN_URL=https://fleetum.it/login
+            NEXT_PUBLIC_SITE_INDEXABLE=true
           tags: |
             ${{ steps.images.outputs.frontend_image }}
             ghcr.io/silviomasuccio6/fleetum-frontend:latest

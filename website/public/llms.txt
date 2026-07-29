@@ -1,0 +1,77 @@
+# Fleetum
+
+> Fleetum è un software SaaS B2B per autonoleggi e fleet management.
+
+Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni, scadenze e KPI in un unico flusso operativo.
+
+## Pagine principali
+
+- [Prodotto](https://fleetum.it/prodotto): panoramica del flusso operativo.
+- [Moduli](https://fleetum.it/moduli): booking, contratti, clienti, veicoli, scadenze, fermi tecnici, listini e dashboard.
+- [Soluzioni](https://fleetum.it/soluzioni): indice delle pagine dedicate ai processi operativi.
+- [Come funziona](https://fleetum.it/come-funziona): analisi, configurazione, migrazione e verifica.
+- [Sicurezza](https://fleetum.it/sicurezza): approccio a workspace, ruoli, audit, documenti e continuità.
+- [Prezzi](https://fleetum.it/prezzi): piani Starter, Pro ed Enterprise.
+- [Chi siamo](https://fleetum.it/chi-siamo): direzione e principi di prodotto.
+- [Demo interattiva](https://fleetum.it/tour): percorso dimostrativo tra booking, contratti, scadenze e KPI senza raccolta dati.
+- [Demo](https://fleetum.it/demo): richiesta di una dimostrazione sul processo reale.
+- [Accesso](https://fleetum.it/accesso): passaggio dal sito pubblico all’area riservata.
+
+## Soluzioni operative
+
+- [Booking noleggi](https://fleetum.it/booking-noleggi): disponibilità, prenotazioni, sedi, uscite e rientri nello stesso planner.
+- [Contratti digitali](https://fleetum.it/contratti-digitali): cliente, veicolo, condizioni, documento e firma nello stesso flusso.
+- [Gestionale flotta](https://fleetum.it/gestionale-flotta): veicoli, sedi, stati, utilizzo, manutenzioni e indicatori.
+- [Scadenze e manutenzione](https://fleetum.it/scadenze-manutenzione): revisioni, soglie, fermi tecnici e impatto sui booking.
+
+## Risposte sintetiche
+
+### Che cos'è Fleetum?
+
+Fleetum è un software SaaS B2B per autonoleggi e operatori di flotta. Collega booking, contratti, clienti, veicoli, manutenzioni, scadenze e KPI in un flusso operativo condiviso.
+
+### A chi è rivolto?
+
+Ad autonoleggi e aziende che gestiscono una flotta e vogliono ridurre il passaggio manuale tra fogli, chat, calendari, PDF e strumenti separati.
+
+### Come funziona il booking?
+
+Il booking organizza richiesta, disponibilità, assegnazione, contratto, uscita e rientro. Gli stati definitivi, i blocchi e le automazioni dipendono dalla configurazione approvata.
+
+### Come vengono gestiti i contratti?
+
+Il contratto riusa dati del cliente, del veicolo e del booking. Modelli legali, firma e conservazione devono essere validati professionalmente e integrati nell'ambiente produttivo.
+
+### Come si introduce Fleetum?
+
+Si parte da processi, sedi, ruoli e fonti dati; poi si configura il flusso minimo, si verifica la migrazione e si testano gli scenari prima del rilascio.
+
+## Prezzi
+
+- Starter: 149 EUR al mese, IVA inclusa.
+- Pro: 199 EUR al mese, IVA inclusa.
+- Enterprise: 249 EUR al mese, IVA inclusa.
+- Il flusso prevede 14 giorni di prova e richiede un metodo di pagamento valido prima dell’attivazione.
+- La fatturazione annuale prevede uno sconto del 15% rispetto a dodici mensilità.
+
+## Sicurezza e adozione
+
+- L'architettura è progettata intorno a workspace separati, ruoli, audit operativo e documenti protetti.
+- Backup, continuità, retention, subfornitori e incident response devono essere verificati nell'ambiente produttivo.
+- Prima della migrazione, fonti e record devono essere inventariati, normalizzati e approvati.
+- Fleetum non sostituisce consulenza legale, controlli tecnici sui veicoli o responsabilità professionali.
+
+## Documentazione
+
+- [Privacy](https://fleetum.it/privacy): informativa operativa da finalizzare.
+- [Cookie](https://fleetum.it/cookie): categorie e gestione del consenso.
+- [Termini](https://fleetum.it/termini): condizioni operative preliminari.
+- [DPA](https://fleetum.it/dpa): schema per il trattamento dati da validare.
+
+## Note di affidabilità
+
+- Gli scenari e i dati mostrati nelle interfacce dimostrative non rappresentano clienti reali.
+- Privacy, termini, cookie e DPA sono predisposizioni operative da validare professionalmente prima della vendita definitiva.
+- Non vengono dichiarate certificazioni, clienti o metriche non verificabili.
+- La richiesta demo viene inviata tramite l'API pubblica Fleetum; le statistiche first-party vengono raccolte soltanto dopo consenso analytics.
+- Il sito pubblico non raccoglie dati di pagamento: trial e abbonamenti vengono attivati nell'area riservata tramite Stripe.
