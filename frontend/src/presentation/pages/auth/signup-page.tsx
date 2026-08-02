@@ -20,6 +20,7 @@ import {
 } from "../../../shared/validation/company-registration";
 import { MagneticOrbs } from "../../../features/auth/components/MagneticOrbs";
 import { ParticleCanvas } from "../../../features/auth/components/ParticleCanvas";
+import { AuthBackToWebsite } from "../../../features/auth/components/AuthBackToWebsite";
 import "../../../features/auth/premium-login.css";
 
 const SIGNUP_STEPS = [
@@ -376,6 +377,7 @@ export const SignupPage = () => {
       <main className="premium-login-auth-shell">
         <section className="premium-login-card-wrap premium-login-card-wrap--signup">
           <div className="premium-login-card premium-login-card--signup">
+            <AuthBackToWebsite />
             <div className="premium-login-card-head">
               <img className="premium-login-card-logo premium-login-card-logo--image" src="/brand/fleetum-symbol-color.svg" alt="Fleetum" />
               <h2>Crea account</h2>

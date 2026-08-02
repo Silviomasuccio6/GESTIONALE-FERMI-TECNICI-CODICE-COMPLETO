@@ -6,6 +6,7 @@ import { getApiBaseUrl } from "../../../infrastructure/api/api-base-url";
 import { FleetumLogoLoader } from "../../../presentation/components/brand/fleetum-logo-loader";
 import { prefetchPrimaryTenantRoutes } from "../../../presentation/routes/prefetch-routes";
 import { getSafeReturnTo } from "../../../presentation/routes/safe-return-to";
+import { AuthBackToWebsite } from "./AuthBackToWebsite";
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -142,6 +143,7 @@ export const LoginCard = () => {
         onMouseMove={handleTilt}
         onMouseLeave={resetTilt}
       >
+        <AuthBackToWebsite />
         <div className="premium-login-card-head">
           <img className="premium-login-card-logo premium-login-card-logo--image" src="/brand/fleetum-symbol-color.svg" alt="Fleetum" />
           <h2>Bentornato</h2>
