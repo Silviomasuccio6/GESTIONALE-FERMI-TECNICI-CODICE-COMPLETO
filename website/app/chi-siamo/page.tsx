@@ -7,7 +7,7 @@ import { buildMetadata } from "../../lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Chi siamo: il progetto Fleetum",
   description:
-    "Fleetum progetta un sistema operativo per rendere più leggibile e controllabile il lavoro quotidiano di autonoleggi e flotte.",
+    "Fleetum sviluppa un gestionale per rendere più leggibile e controllabile il lavoro quotidiano di autonoleggi e flotte.",
   path: "/chi-siamo",
 });
 
@@ -16,7 +16,7 @@ export default function AboutPage() {
     <>
       <WebPageJsonLd
         name="Chi siamo: il progetto Fleetum"
-        description="Fleetum progetta un sistema operativo per rendere più leggibile e controllabile il lavoro quotidiano di autonoleggi e flotte."
+        description="Fleetum sviluppa un gestionale per rendere più leggibile e controllabile il lavoro quotidiano di autonoleggi e flotte."
         path="/chi-siamo"
       />
       <SiteHeader />
@@ -25,7 +25,7 @@ export default function AboutPage() {
           <div className="detail-inner detail-hero-copy">
             <Breadcrumbs items={[{ label: "Chi siamo", href: "/chi-siamo" }]} />
             <span className="kicker">Chi siamo</span>
-            <h1>Fleetum nasce intorno al lavoro operativo.</h1>
+            <h1>Fleetum nasce dal lavoro quotidiano degli autonoleggi.</h1>
             <p>
               Progettiamo un sistema che rende prenotazioni, contratti, mezzi e
               decisioni più leggibili per chi gestisce un autonoleggio ogni
@@ -37,8 +37,8 @@ export default function AboutPage() {
         <section className="detail-scene mission-scene">
           <div className="detail-inner mission-layout">
             <div className="detail-heading">
-              <span className="kicker">La direzione</span>
-              <h2>Meno frammentazione. Più controllo.</h2>
+              <span className="kicker">Cosa vogliamo semplificare</span>
+              <h2>Meno ricopiature tra booking, contratti e flotta.</h2>
             </div>
             <div className="mission-copy">
               <p>
@@ -56,8 +56,8 @@ export default function AboutPage() {
         <section className="detail-scene principles-scene">
           <div className="detail-inner">
             <div className="detail-heading">
-              <span className="kicker">Principi di prodotto</span>
-              <h2>Quattro scelte che guidano Fleetum.</h2>
+              <span className="kicker">Come progettiamo Fleetum</span>
+              <h2>Quattro criteri di prodotto.</h2>
             </div>
             <div className="principles-grid">
               <article>
@@ -73,7 +73,7 @@ export default function AboutPage() {
               <article>
                 <span>03</span>
                 <h3>Promesse verificabili</h3>
-                <p>Niente numeri, clienti o certificazioni non dimostrabili.</p>
+                <p>Numeri e certificazioni solo quando hanno fonti verificabili.</p>
               </article>
               <article>
                 <span>04</span>

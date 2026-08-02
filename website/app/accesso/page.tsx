@@ -26,10 +26,10 @@ export default function AccessPage() {
             <div className="detail-hero-copy">
               <Breadcrumbs items={[{ label: "Accedi", href: "/accesso" }]} />
               <span className="kicker">Area riservata Fleetum</span>
-              <h1>Il sito pubblico finisce qui. Il lavoro continua nel gestionale.</h1>
+              <h1>Accedi al gestionale Fleetum.</h1>
               <p>
-                Questa pagina separa con chiarezza l’esplorazione del prodotto
-                dall’accesso operativo dei clienti.
+                Se sei già cliente, apri l’area riservata. Per valutare il
+                prodotto puoi usare il tour o prenotare una demo.
               </p>
             </div>
 
@@ -55,11 +55,11 @@ export default function AccessPage() {
         <section className="detail-scene access-paths-scene">
           <div className="detail-inner">
             <div className="detail-heading">
-              <span className="kicker">Scegli il percorso corretto</span>
-              <h2>Accesso, valutazione e confronto restano separati.</h2>
+              <span className="kicker">Tre possibili azioni</span>
+              <h2>Accedi, esplora la demo o prenota un confronto.</h2>
               <p>
-                In questo modo ogni visitatore sa sempre cosa accadrà dopo il
-                clic.
+                Scegli l’area riservata se sei cliente, il tour se vuoi vedere
+                il prodotto oppure la demo per parlarne con Fleetum.
               </p>
             </div>
             <div className="access-paths">

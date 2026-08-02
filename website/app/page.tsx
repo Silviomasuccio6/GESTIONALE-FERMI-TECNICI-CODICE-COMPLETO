@@ -56,7 +56,7 @@ const BookingPlanner = () => (
   <div className="planner" aria-label="Anteprima del calendario booking Fleetum">
     <div className="planner-head">
       <div>
-        <span>BOOKING CONTROL ROOM</span>
+        <span>CALENDARIO NOLEGGI</span>
         <strong>Aprile 2026</strong>
       </div>
       <div className="planner-meta">
@@ -93,8 +93,8 @@ export default function Home() {
   return (
     <>
       <WebPageJsonLd
-        name="Fleetum — Il sistema operativo per autonoleggi moderni"
-        description="Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni, scadenze e KPI in un'unica control room."
+        name="Fleetum — Gestionale per autonoleggi, booking e flotta"
+        description="Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni, scadenze e KPI in un unico gestionale."
         path="/"
       />
       <JsonLd
@@ -106,7 +106,7 @@ export default function Home() {
           applicationCategory: "BusinessApplication",
           operatingSystem: "Web",
           description:
-            "Gestionale SaaS per booking, contratti, clienti, flotta, manutenzioni, scadenze e KPI degli autonoleggi.",
+            "Gestionale per booking, contratti, clienti, flotta, manutenzioni, scadenze e KPI degli autonoleggi.",
           url: publicOrigin,
           offers: plans.map((plan) => ({
             "@type": "Offer",
@@ -162,16 +162,16 @@ export default function Home() {
             <div className="hero-copy">
               <div className="eyebrow">
                 <span className="live-dot" />
-                SaaS per autonoleggi e flotte
+                Booking · contratti · flotta
               </div>
               <h1>
-                Il sistema operativo
+                Gestisci ogni noleggio,
                 <br />
-                per <em>autonoleggi moderni.</em>
+                <em>dall’uscita al rientro.</em>
               </h1>
               <p>
-                Fleetum collega prenotazioni, contratti digitali, clienti,
-                veicoli, manutenzioni, scadenze e KPI in un’unica control room.
+                Prenotazioni, contratti, clienti, veicoli, manutenzioni,
+                scadenze e KPI restano collegati nello stesso gestionale.
               </p>
               <div className="hero-actions">
                 <a
@@ -218,7 +218,7 @@ export default function Home() {
                 <div className="control-content">
                   <div className="control-topbar">
                     <div>
-                      <span>FLEETUM CONTROL ROOM · DATI DIMOSTRATIVI</span>
+                      <span>PANORAMICA OPERATIVA · DATI DIMOSTRATIVI</span>
                       <strong>Buongiorno</strong>
                     </div>
                     <span className="status-pill">
@@ -262,7 +262,7 @@ export default function Home() {
             </div>
           </div>
           <a className="scroll-cue" href="#problema">
-            Scopri il sistema <span>↓</span>
+            Vedi come funziona <span>↓</span>
           </a>
         </section>
 
@@ -270,16 +270,16 @@ export default function Home() {
           <div className="scene-inner">
             <div className="scene-heading split-heading">
               <div>
-                <span className="kicker">02 — PROBLEMA OPERATIVO</span>
+                <span className="kicker">02 · OPERATIVITÀ QUOTIDIANA</span>
                 <h2>
-                  Quando il noleggio cresce,
+                  Quando aumentano i noleggi,
                   <br />
-                  Excel non basta più.
+                  i fogli non bastano più.
                 </h2>
               </div>
               <p>
-                Fleetum elimina attrito dai processi quotidiani: meno passaggi
-                manuali, più controllo su flotta, clienti e contratti.
+                Fleetum riduce i passaggi manuali e collega flotta, clienti,
+                prenotazioni e contratti.
               </p>
             </div>
             <div className="friction-grid">
@@ -294,9 +294,9 @@ export default function Home() {
               ))}
             </div>
             <div className="problem-close">
-              <span>Da frammentato</span>
+              <span>Da dati separati</span>
               <i />
-              <strong>A un unico flusso operativo</strong>
+              <strong>A un processo condiviso</strong>
             </div>
           </div>
         </section>
@@ -304,8 +304,8 @@ export default function Home() {
         <section className="scene scene-flow" id="flusso">
           <div className="scene-inner flow-layout">
             <div className="scene-heading">
-              <span className="kicker light">03 — FLUSSO OPERATIVO</span>
-              <h2>Ogni processo, collegato.</h2>
+              <span className="kicker light">03 · DAL BOOKING AL REPORT</span>
+              <h2>Ogni passaggio aggiorna il successivo.</h2>
               <p>
                 Cliente, prenotazione, contratto e veicolo restano nello stesso
                 percorso, dal primo contatto al report finale.
@@ -321,7 +321,7 @@ export default function Home() {
             </div>
             <div className="flow-product">
               <div className="flow-copy">
-                <span>BOOKING CONTROL ROOM</span>
+                <span>CALENDARIO NOLEGGI</span>
                 <h3>Il calendario diventa il centro operativo.</h3>
                 <p>
                   Leggi disponibilità, uscite, rientri e criticità prima che
@@ -390,7 +390,7 @@ export default function Home() {
               </div>
             </div>
             <div className="contracts-copy">
-              <span className="kicker">04 — CONTRATTI DIGITALI</span>
+              <span className="kicker">04 · DATI, DOCUMENTI E FIRMA</span>
               <h2>
                 Professionali,
                 <br />
@@ -417,8 +417,8 @@ export default function Home() {
           <div className="scene-inner">
             <div className="scene-heading split-heading">
               <div>
-                <span className="kicker">05 — MODULI FLEETUM</span>
-                <h2>Tutto quello che serve, senza frammentazione.</h2>
+                <span className="kicker">05 · BOOKING, CONTRATTI, FLOTTA E KPI</span>
+                <h2>Otto moduli, gli stessi dati.</h2>
               </div>
               <p>
                 Ogni modulo alimenta gli altri. Un aggiornamento diventa subito
@@ -441,7 +441,7 @@ export default function Home() {
         <section className="scene scene-security" id="sicurezza">
           <div className="scene-inner security-layout">
             <div className="security-copy">
-              <span className="kicker light">06 — SAAS E SICUREZZA</span>
+              <span className="kicker light">06 · ACCESSI, DATI E CONTINUITÀ</span>
               <h2>
                 Progettato per aziende,
                 <br />
@@ -474,7 +474,7 @@ export default function Home() {
               <article>
                 <span>04</span>
                 <h3>Backup e continuità</h3>
-                <p>Processi di rilascio e salvaguardia progettati per un SaaS B2B.</p>
+                <p>Procedure di rilascio, backup e ripristino documentate.</p>
               </article>
               <div className="security-seal">
                 <img
@@ -484,8 +484,8 @@ export default function Home() {
                   height="54"
                 />
                 <span>
-                  <small>FLEETUM PLATFORM</small>
-                  <strong>Controllo, isolamento, continuità.</strong>
+                  <small>SICUREZZA FLEETUM</small>
+                  <strong>Accessi controllati e dati separati.</strong>
                 </span>
               </div>
             </div>
@@ -495,8 +495,8 @@ export default function Home() {
         <section className="scene scene-pricing" id="prezzi">
           <div className="scene-inner pricing-layout">
             <div className="scene-heading pricing-heading">
-              <span className="kicker">07 — PREZZI</span>
-              <h2>Piani chiari per crescere con controllo.</h2>
+              <span className="kicker">07 · STARTER, PRO ED ENTERPRISE</span>
+              <h2>Tre piani, prezzi mensili IVA inclusa.</h2>
               <p>
                 Scegli il piano in base alla complessità operativa del tuo
                 autonoleggio. Prezzi mensili IVA inclusa.
@@ -548,8 +548,8 @@ export default function Home() {
         <section className="scene scene-trust" id="fiducia">
           <div className="scene-inner trust-layout">
             <div className="scene-heading">
-              <span className="kicker">08 — FIDUCIA OPERATIVA</span>
-              <h2>Concretezza prima delle promesse.</h2>
+              <span className="kicker">08 · COSA PUOI VERIFICARE</span>
+              <h2>Funzioni e condizioni sono consultabili prima di scegliere.</h2>
               <p>
                 Fleetum presenta ciò che il prodotto deve rendere verificabile:
                 dati collegati, responsabilità chiare e decisioni più rapide.
@@ -574,18 +574,18 @@ export default function Home() {
               </article>
               <article>
                 <span>03</span>
-                <h3>Nessuna prova inventata</h3>
+                <h3>Riferimenti verificati</h3>
                 <p>
-                  Testimonianze e casi studio entreranno nel sito solo quando
-                  saranno autentici e verificabili.
+                  Testimonianze e casi studio vengono pubblicati solo con
+                  autorizzazione e fonti verificabili.
                 </p>
               </article>
               <article>
                 <span>04</span>
                 <h3>Documenti trasparenti</h3>
                 <p>
-                  Privacy, termini e DPA sono pubblicati come bozze operative da
-                  validare prima della vendita definitiva.
+                  Privacy, termini e DPA rendono consultabili ambito,
+                  responsabilità e condizioni del servizio.
                 </p>
               </article>
             </div>
@@ -595,7 +595,7 @@ export default function Home() {
         <section className="scene scene-faq" id="faq">
           <div className="scene-inner faq-layout">
             <div className="scene-heading">
-              <span className="kicker">09 — DOMANDE FREQUENTI</span>
+              <span className="kicker">09 · PRODOTTO, PREZZI E PROVA</span>
               <h2>Prima di vedere Fleetum in azione.</h2>
               <p>
                 Risposte essenziali su prodotto, prezzi, prova e gestione
@@ -625,15 +625,15 @@ export default function Home() {
               width="320"
               height="95"
             />
-            <span className="kicker light">PRONTO A PARTIRE</span>
+            <span className="kicker light">DEMO PERSONALIZZATA · 20 MINUTI</span>
             <h2>
-              Porta il tuo autonoleggio
+              Valuta Fleetum sul tuo
               <br />
-              in una control room digitale.
+              processo di noleggio.
             </h2>
             <p>
-              Crea il workspace, configura azienda e flotta, poi gestisci
-              prenotazioni e contratti con un flusso professionale.
+              Mostraci sedi, flotta e priorità. Ti mostriamo come gestire
+              booking, contratti e controlli quotidiani.
             </p>
             <div className="final-actions">
               <a className="button button-primary" href="/tour">

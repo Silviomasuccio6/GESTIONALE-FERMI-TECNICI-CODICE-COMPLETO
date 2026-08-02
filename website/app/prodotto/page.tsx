@@ -12,7 +12,7 @@ import { buildMetadata } from "../../lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Software gestionale per autonoleggio",
   description:
-    "Scopri come Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni e KPI in un unico flusso operativo.",
+    "Scopri come Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni e KPI nello stesso gestionale.",
   path: "/prodotto",
 });
 
@@ -30,7 +30,7 @@ export default function ProductPage() {
     <>
       <WebPageJsonLd
         name="Software gestionale per autonoleggio Fleetum"
-        description="Scopri come Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni e KPI in un unico flusso operativo."
+        description="Scopri come Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni e KPI nello stesso gestionale."
         path="/prodotto"
       />
       <SiteHeader />
@@ -40,14 +40,14 @@ export default function ProductPage() {
             <div className="detail-hero-copy">
               <Breadcrumbs items={[{ label: "Prodotto", href: "/prodotto" }]} />
               <span className="kicker">Software autonoleggio</span>
-              <h1>Una regia unica per ogni noleggio.</h1>
+              <h1>Booking, contratto e veicolo restano collegati.</h1>
               <p>
                 Fleetum unisce booking, contratti, clienti, flotta e
-                redditività in un sistema progettato per chi deve decidere in
-                pochi secondi.
+                redditività per mostrare al team cosa parte, cosa rientra e
+                cosa richiede attenzione.
               </p>
               <div className="hero-actions">
-                <a className="button button-primary" href="/demo">
+                <a className="button button-primary" href="/tour">
                   Vedi il flusso completo <Arrow />
                 </a>
                 <a className="button button-ghost" href="/moduli">
@@ -59,7 +59,7 @@ export default function ProductPage() {
             <div className="product-preview" aria-label="Scenario dimostrativo Fleetum">
               <div className="preview-top">
                 <div>
-                  <span>CONTROL ROOM · DATI DIMOSTRATIVI</span>
+                  <span>PANORAMICA OPERATIVA · DATI DIMOSTRATIVI</span>
                   <strong>Priorità operative</strong>
                 </div>
                 <b>Operativo</b>
@@ -111,11 +111,11 @@ export default function ProductPage() {
         <section className="detail-scene journey-scene">
           <div className="detail-inner">
             <div className="detail-heading">
-              <span className="kicker">Un flusso collegato</span>
+              <span className="kicker">Dal cliente al report</span>
               <h2>Dal primo contatto al report finale.</h2>
               <p>
-                Ogni passaggio aggiorna il successivo. Il team riduce
-                duplicazioni e mantiene il contesto operativo.
+                Ogni passaggio aggiorna il successivo. Il team evita
+                ricopiature e conserva dati e stato del noleggio.
               </p>
             </div>
             <div className="journey-grid">
@@ -133,8 +133,8 @@ export default function ProductPage() {
         <section className="detail-scene decision-scene">
           <div className="detail-inner decision-layout">
             <div className="detail-heading">
-              <span className="kicker">Progettato intorno alle decisioni</span>
-              <h2>Il dato utile arriva nel momento giusto.</h2>
+              <span className="kicker">Informazioni per ruolo</span>
+              <h2>Ogni ruolo vede ciò che deve controllare.</h2>
               <p>
                 Non una raccolta di schermate scollegate, ma informazioni
                 organizzate intorno al veicolo e al noleggio.

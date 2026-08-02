@@ -5,9 +5,9 @@ import { PublicAnalytics } from "../components/public-analytics";
 import { isIndexable, publicOrigin } from "../lib/site-data";
 import "./globals.css";
 
-const title = "Fleetum — Il sistema operativo per autonoleggi moderni";
+const title = "Fleetum — Gestionale per autonoleggi, booking e flotta";
 const description =
-  "Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni, scadenze e KPI in un'unica control room.";
+  "Fleetum collega booking, contratti digitali, clienti, veicoli, manutenzioni, scadenze e KPI in un unico gestionale.";
 
 export const viewport: Viewport = {
   colorScheme: "light",
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
         url: `${publicOrigin}/brand/fleetum-social-preview.png`,
         width: 1200,
         height: 630,
-        alt: "Fleetum — Il sistema operativo per autonoleggi moderni",
+        alt: "Fleetum — Gestionale per autonoleggi, booking e flotta",
       },
     ],
   },

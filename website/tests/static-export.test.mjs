@@ -78,12 +78,24 @@ test("exports every Fleetum marketing route as static HTML", async () => {
   const home = await readFile(routeHtml(""), "utf8");
   assert.match(
     home,
-    /<title>Fleetum — Il sistema operativo per autonoleggi moderni<\/title>/i,
+    /<title>Fleetum — Gestionale per autonoleggi, booking e flotta<\/title>/i,
   );
-  assert.match(home, /autonoleggi moderni/i);
+  assert.match(home, /Gestisci ogni noleggio/i);
   assert.match(home, /href="\/demo\/?"/);
   assert.match(home, /fleetum-social-preview\.png/);
   assert.doesNotMatch(home, /codex-preview|Building your site/i);
+});
+
+test("keeps public copy concrete across every marketing page", async () => {
+  const pages = await Promise.all(
+    publicRoutes.map((route) => readFile(routeHtml(route), "utf8")),
+  );
+  const publicCopy = pages.join("\n");
+
+  assert.doesNotMatch(
+    publicCopy,
+    /FLEETUM CONTROL ROOM|BOOKING CONTROL ROOM|CONTROL ROOM · DATI DIMOSTRATIVI|Questa pagina non è nella control room|Una sola sorgente operativa|Pagine dedicate|Parti dal tuo contesto|Fiducia operativa|Processo prima del badge|Scenario modificabile|Domande concrete|Risposta diretta|Demo Fleetum · percorso guidato|20 minuti sul tuo flusso reale|Fleetum sul tuo flusso reale|Scegli il percorso corretto|SaaS per autonoleggi e flotte|PRONTO A PARTIRE/i,
+  );
 });
 
 test("emits canonical, social and WebPage metadata on every indexable route", async () => {

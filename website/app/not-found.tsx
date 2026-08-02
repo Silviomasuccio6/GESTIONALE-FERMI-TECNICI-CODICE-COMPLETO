@@ -7,7 +7,7 @@ export default function NotFound() {
       <main id="main-content" className="not-found-page">
         <div>
           <span className="kicker">Errore 404</span>
-          <h1>Questa pagina non è nella control room.</h1>
+          <h1>Questa pagina non è disponibile.</h1>
           <p>
             L’indirizzo potrebbe essere cambiato oppure la pagina non esiste.
           </p>

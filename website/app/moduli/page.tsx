@@ -25,11 +25,11 @@ export default function ModulesPage() {
         <section className="detail-hero modules-hero">
           <div className="detail-inner detail-hero-copy">
             <Breadcrumbs items={[{ label: "Moduli", href: "/moduli" }]} />
-            <span className="kicker">Moduli Fleetum</span>
-            <h1>Tutto quello che serve, senza frammentazione.</h1>
+            <span className="kicker">Booking · contratti · flotta · KPI</span>
+            <h1>Otto moduli che condividono gli stessi dati.</h1>
             <p>
-              Ogni modulo alimenta gli altri. Un aggiornamento diventa subito
-              informazione utile per banco, operations e direzione.
+              Una modifica al booking aggiorna le informazioni disponibili per
+              contratto, flotta, scadenze e report.
             </p>
             <div className="module-index" aria-label="Indice moduli">
               {modules.map((module) => (
@@ -60,11 +60,11 @@ export default function ModulesPage() {
         <section className="detail-scene connected-scene">
           <div className="detail-inner connected-layout">
             <div className="detail-heading">
-              <span className="kicker">Una sola sorgente operativa</span>
+              <span className="kicker">Dal booking ai KPI</span>
               <h2>Il booking non finisce nel calendario.</h2>
               <p>
                 Continua nel contratto, nel rientro, nella manutenzione e nei
-                KPI. È questo collegamento a trasformare i moduli in sistema.
+                report. Cliente, veicolo e stato restano collegati.
               </p>
             </div>
             <div className="connection-list">
