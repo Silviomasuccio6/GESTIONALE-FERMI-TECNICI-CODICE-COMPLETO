@@ -27,8 +27,8 @@ export default function SecurityPage() {
           <div className="detail-inner detail-hero-grid">
             <div className="detail-hero-copy">
               <Breadcrumbs items={[{ label: "Sicurezza", href: "/sicurezza" }]} />
-              <span className="kicker">SaaS e sicurezza</span>
-              <h1>Dati, ruoli e processi aziendali.</h1>
+              <span className="kicker">Dati, accessi e continuità</span>
+              <h1>Dati protetti, ruoli separati e continuità operativa.</h1>
               <p>
                 Privacy, sicurezza e continuità operativa sono processi da
                 mantenere e verificare, non semplici badge da esporre.
@@ -41,8 +41,8 @@ export default function SecurityPage() {
                 width="90"
                 height="90"
               />
-              <span>FLEETUM PLATFORM</span>
-              <strong>Controllo, isolamento, continuità.</strong>
+              <span>SICUREZZA FLEETUM</span>
+              <strong>Workspace separati e accessi controllati.</strong>
               <p>
                 Le misure definitive dipendono dall’ambiente produttivo e
                 devono essere validate con la documentazione legale.
@@ -54,7 +54,7 @@ export default function SecurityPage() {
         <section className="detail-scene security-detail-scene">
           <div className="detail-inner">
             <div className="detail-heading">
-              <span className="kicker">Fiducia operativa</span>
+              <span className="kicker">Sei aree di controllo</span>
               <h2>Sei aree da progettare e verificare.</h2>
               <p>
                 Ogni area deve diventare un controllo concreto del prodotto e
@@ -76,8 +76,8 @@ export default function SecurityPage() {
         <section className="detail-scene security-process-scene">
           <div className="detail-inner process-layout">
             <div className="detail-heading">
-              <span className="kicker">Processo prima del badge</span>
-              <h2>Ciò che verrà dichiarato deve poter essere dimostrato.</h2>
+              <span className="kicker">Dalle regole alle evidenze</span>
+              <h2>Ogni misura deve lasciare una verifica.</h2>
             </div>
             <div className="process-list">
               <article>

@@ -32,7 +32,7 @@ export default function PricingPage() {
           "@context": "https://schema.org",
           "@type": "Product",
           name: "Fleetum",
-          description: "Software SaaS B2B per autonoleggi e fleet management.",
+          description: "Software per autonoleggi e gestione flotta.",
           url: `${publicOrigin}/prezzi`,
           offers: plans.map((plan) => ({
             "@type": "Offer",
@@ -56,8 +56,8 @@ export default function PricingPage() {
         <section className="detail-hero pricing-page-hero">
           <div className="detail-inner detail-hero-copy">
             <Breadcrumbs items={[{ label: "Prezzi", href: "/prezzi" }]} />
-            <span className="kicker">Prezzi Fleetum</span>
-            <h1>Un piano chiaro per il tuo modo di lavorare.</h1>
+            <span className="kicker">Starter · Pro · Enterprise</span>
+            <h1>Confronta prezzi, funzioni e condizioni.</h1>
             <p>
               Prezzi mensili IVA inclusa, confronto immediato e condizioni della
               prova visibili prima di scegliere.
@@ -87,7 +87,7 @@ export default function PricingPage() {
           <div className="detail-inner">
             <div className="detail-heading centered-heading">
               <span className="kicker">Prezzi IVA inclusa</span>
-              <h2>Scegli il livello operativo.</h2>
+              <h2>Scegli il piano adatto alla tua struttura.</h2>
               <p>
                 Il trial di 14 giorni richiede un metodo di pagamento valido
                 prima dell’attivazione.
@@ -106,11 +106,11 @@ export default function PricingPage() {
         <section className="detail-scene activation-scene">
           <div className="detail-inner activation-layout">
             <div className="detail-heading">
-              <span className="kicker">Flusso trasparente</span>
-              <h2>Dalla demo all’attivazione.</h2>
+              <span className="kicker">Come si attiva</span>
+              <h2>Quattro passaggi prima di iniziare.</h2>
               <p>
-                Ogni passaggio rende esplicita la decisione successiva, senza
-                nascondere condizioni commerciali.
+                Confronta il piano, scegli il ciclo, inserisci i dati aziendali
+                e conferma il metodo di pagamento.
               </p>
             </div>
             <div className="activation-steps">

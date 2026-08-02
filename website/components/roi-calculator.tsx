@@ -67,7 +67,7 @@ export function RoiCalculator() {
   return (
     <div className="roi-calculator">
       <div className="roi-copy">
-        <span className="kicker">Scenario modificabile</span>
+        <span className="kicker">Calcolo sui tuoi dati</span>
         <h2>Quanto pesa oggi il lavoro ripetitivo?</h2>
         <p>
           Inserisci i tuoi volumi. Il calcolo non promette un risparmio: rende

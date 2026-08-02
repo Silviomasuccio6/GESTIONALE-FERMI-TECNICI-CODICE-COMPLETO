@@ -22,7 +22,7 @@ const solutions = [
     href: "/booking-noleggi",
     label: "Booking noleggi",
     context: "Disponibilità, sedi, uscite e rientri",
-    copy: "Trasforma il calendario in una regia operativa collegata a cliente, veicolo e stato del noleggio.",
+    copy: "Mostra disponibilità, cliente, veicolo e stato del noleggio nello stesso calendario.",
   },
   {
     number: "02",
@@ -85,12 +85,11 @@ export default function SolutionsPage() {
           <div className="detail-inner detail-hero-grid">
             <div className="detail-hero-copy">
               <Breadcrumbs items={[{ label: "Soluzioni", href: "/soluzioni" }]} />
-              <span className="kicker">Soluzioni Fleetum</span>
-              <h1>Ogni processo ha la sua pagina.</h1>
+              <span className="kicker">Quattro processi chiave</span>
+              <h1>Scegli il processo che vuoi organizzare.</h1>
               <p>
-                Scegli il punto da cui vuoi partire. Ogni area ha una pagina
-                dedicata con contesto, flusso operativo, verifiche e domande
-                concrete.
+                Approfondisci booking, contratti, flotta oppure scadenze e
+                verifica dati, passaggi e controlli previsti.
               </p>
               <div className="hero-actions">
                 <a className="button button-primary" href="/tour">
@@ -126,8 +125,8 @@ export default function SolutionsPage() {
         <section className="detail-scene solutions-catalog-scene">
           <div className="detail-inner">
             <div className="detail-heading">
-              <span className="kicker">Pagine dedicate</span>
-              <h2>Entra nel processo che vuoi migliorare.</h2>
+              <span className="kicker">Booking, contratti, flotta e scadenze</span>
+              <h2>Approfondisci l’area che vuoi migliorare.</h2>
               <p>
                 Ogni soluzione risponde a un problema specifico senza perdere
                 il collegamento con il resto dell’operatività.
@@ -143,7 +142,7 @@ export default function SolutionsPage() {
                   <h3>{solution.label}</h3>
                   <p>{solution.copy}</p>
                   <a href={solution.href}>
-                    Apri la pagina dedicata <Arrow />
+                    Approfondisci <Arrow />
                   </a>
                 </article>
               ))}
@@ -154,8 +153,8 @@ export default function SolutionsPage() {
         <section className="detail-scene operating-models-scene">
           <div className="detail-inner operating-models-layout">
             <div className="detail-heading">
-              <span className="kicker">Parti dal tuo contesto</span>
-              <h2>La stessa piattaforma, tre livelli operativi.</h2>
+              <span className="kicker">Piccolo team, operations o multi-sede</span>
+              <h2>Funzioni e configurazione cambiano con la tua struttura.</h2>
               <p>
                 Dimensione della flotta e numero di sedi cambiano profondità,
                 governance e percorso di attivazione.
@@ -175,8 +174,8 @@ export default function SolutionsPage() {
         </section>
 
         <PageCta
-          title="Partiamo dal processo che oggi crea più attrito."
-          copy="Apri la demo interattiva oppure raccontaci il tuo flusso: il percorso resta focalizzato sul problema reale."
+          title="Mostraci quale processo vuoi organizzare per primo."
+          copy="Apri la demo interattiva oppure indicaci sedi, flotta e priorità per preparare un confronto mirato."
         />
       </main>
       <SiteFooter />

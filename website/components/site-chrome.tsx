@@ -57,8 +57,8 @@ export function SiteFooter() {
             height="95"
           />
           <p>
-            Il sistema operativo per booking, contratti, flotta e redditività
-            degli autonoleggi moderni.
+            Gestionale per booking, contratti, flotta e redditività degli
+            autonoleggi.
           </p>
           <a className="inline-link" href="/tour">
             Guarda la demo interattiva <Arrow />
@@ -100,7 +100,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="global-footer-bottom">
-        <span>© 2026 Fleetum. SaaS B2B per autonoleggi e fleet management.</span>
+        <span>© 2026 Fleetum. Software B2B per autonoleggi e gestione flotta.</span>
         <span>Progettato e operato in Italia.</span>
       </div>
     </footer>
@@ -108,8 +108,8 @@ export function SiteFooter() {
 }
 
 export function PageCta({
-  title = "La prossima prenotazione può partire meglio.",
-  copy = "Raccontaci sedi, flotta e modo di lavorare. Prepariamo una demo mirata, non una presentazione generica.",
+  title = "Mostraci sedi, flotta e processo di noleggio.",
+  copy = "Prepariamo una demo su booking, contratti e controlli che il tuo team usa davvero.",
 }: {
   title?: string;
   copy?: string;
@@ -118,7 +118,7 @@ export function PageCta({
     <section className="detail-scene page-cta">
       <div className="page-cta-glow" />
       <div className="detail-inner page-cta-content">
-        <span className="kicker">Fleetum sul tuo flusso reale</span>
+        <span className="kicker">Demo personalizzata · 20 minuti</span>
         <h2>{title}</h2>
         <p>{copy}</p>
         <div className="hero-actions">

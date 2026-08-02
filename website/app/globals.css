@@ -4707,7 +4707,7 @@ img {
     padding: 0 22px;
     position: fixed;
     right: 12px;
-    bottom: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     z-index: 85;
     display: inline-flex;
     align-items: center;
@@ -4786,7 +4786,8 @@ img {
 
   .cookie-preferences-trigger {
     left: 12px;
-    bottom: 76px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    min-height: 52px;
   }
 
   .global-footer {

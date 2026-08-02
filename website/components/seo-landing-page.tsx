@@ -32,7 +32,7 @@ export function SeoLandingPage({ page }: { page: LandingPageData }) {
               operatingSystem: "Web",
               url: publicOrigin,
               description:
-                "Gestionale SaaS per booking, contratti, clienti, flotta, manutenzioni, scadenze e KPI degli autonoleggi.",
+                "Gestionale per booking, contratti, clienti, flotta, manutenzioni, scadenze e KPI degli autonoleggi.",
             },
           ],
         }}
@@ -56,7 +56,7 @@ export function SeoLandingPage({ page }: { page: LandingPageData }) {
               </div>
             </div>
             <aside className="answer-card" aria-labelledby="direct-answer-title">
-              <span>Risposta diretta</span>
+              <span>In breve</span>
               <h2 id="direct-answer-title">{page.question}</h2>
               <p>{page.answer}</p>
             </aside>
@@ -66,7 +66,7 @@ export function SeoLandingPage({ page }: { page: LandingPageData }) {
         <section className="detail-scene solution-overview">
           <div className="detail-inner solution-copy-layout">
             <div className="detail-heading">
-              <span className="kicker">Contesto operativo</span>
+              <span className="kicker">Cosa risolve</span>
               <h2>{page.overviewTitle}</h2>
             </div>
             <div className="longform-copy">
@@ -89,7 +89,7 @@ export function SeoLandingPage({ page }: { page: LandingPageData }) {
         <section className="detail-scene workflow-scene">
           <div className="detail-inner">
             <div className="detail-heading">
-              <span className="kicker">Flusso leggibile</span>
+              <span className="kicker">Fasi e risultati</span>
               <h2>{page.workflowTitle}</h2>
             </div>
             <div className="workflow-table-wrap" tabIndex={0}>
@@ -119,7 +119,7 @@ export function SeoLandingPage({ page }: { page: LandingPageData }) {
         <section className="detail-scene assurance-scene">
           <div className="detail-inner assurance-layout">
             <div className="detail-heading">
-              <span className="kicker">Prima della produzione</span>
+              <span className="kicker">Cosa verificare</span>
               <h2>{page.assuranceTitle}</h2>
             </div>
             <div className="assurance-copy">
@@ -136,8 +136,8 @@ export function SeoLandingPage({ page }: { page: LandingPageData }) {
         <section className="detail-scene solution-faq-scene">
           <div className="detail-inner solution-faq-layout">
             <div className="detail-heading">
-              <span className="kicker">Domande concrete</span>
-              <h2>Cosa chiarire prima di decidere.</h2>
+              <span className="kicker">Domande frequenti</span>
+              <h2>Prima di scegliere.</h2>
             </div>
             <div className="faq-list">
               {page.faqs.map((faq, index) => (
@@ -151,7 +151,7 @@ export function SeoLandingPage({ page }: { page: LandingPageData }) {
               ))}
             </div>
             <nav className="related-links" aria-label="Approfondimenti correlati">
-              <strong>Continua l’esplorazione</strong>
+              <strong>Approfondisci</strong>
               <div>
                 {page.related.map((link) => (
                   <a key={link.href} href={link.href}>

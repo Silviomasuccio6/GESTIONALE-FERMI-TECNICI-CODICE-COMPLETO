@@ -9,7 +9,7 @@ const tourSteps = [
     id: "booking",
     number: "01",
     label: "Booking",
-    eyebrow: "Control room",
+    eyebrow: "Calendario noleggi",
     title: "Disponibilità, uscite e rientri in una sola vista.",
     copy: "Il planner collega mezzo, cliente e stato operativo. Le criticità restano vicine alla prenotazione, non in un foglio separato.",
     outcome: "Individua subito disponibilità e sovrapposizioni.",
@@ -18,7 +18,7 @@ const tourSteps = [
     id: "contract",
     number: "02",
     label: "Contratto",
-    eyebrow: "Flusso digitale",
+    eyebrow: "Dati e firma",
     title: "Dal booking al contratto senza ricopiare i dati.",
     copy: "Cliente, veicolo, orari e condizioni seguono la prenotazione. Il documento resta collegato al noleggio e al suo stato.",
     outcome: "Riduce passaggi manuali e versioni scollegate.",
@@ -27,7 +27,7 @@ const tourSteps = [
     id: "maintenance",
     number: "03",
     label: "Scadenze",
-    eyebrow: "Presidio flotta",
+    eyebrow: "Scadenze e manutenzioni",
     title: "Le manutenzioni entrano nella pianificazione.",
     copy: "Revisioni, chilometri e fermi tecnici vengono letti insieme alle prenotazioni che potrebbero esserne coinvolte.",
     outcome: "Intervieni prima che un mezzo già prenotato diventi indisponibile.",
@@ -36,7 +36,7 @@ const tourSteps = [
     id: "kpi",
     number: "04",
     label: "KPI",
-    eyebrow: "Decisioni operative",
+    eyebrow: "Occupazione e ricavi",
     title: "I numeri evidenziano dove agire.",
     copy: "Occupazione, ricavi, contratti e rientri vengono presentati come priorità operative, non come grafici isolati.",
     outcome: "Direzione e banco condividono lo stesso quadro.",
@@ -48,7 +48,7 @@ function BookingView() {
     <div className="tour-schedule" aria-label="Esempio booking Fleetum">
       <div className="tour-schedule-head">
         <div>
-          <span>BOOKING CONTROL ROOM</span>
+          <span>CALENDARIO NOLEGGI</span>
           <strong>Settimana operativa</strong>
         </div>
         <span>Roma Centro</span>

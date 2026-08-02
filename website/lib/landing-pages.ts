@@ -28,9 +28,9 @@ export const landingPages: Record<string, LandingPageData> = {
     question: "Come funziona un software di booking per autonoleggi?",
     answer:
       "Un software di booking per autonoleggi deve mostrare quali veicoli sono realmente disponibili, in quale sede e per quale intervallo, prima di confermare una prenotazione. Fleetum organizza richieste, assegnazioni, uscite e rientri in un planner condiviso. Il booking non resta isolato: riusa i dati del cliente, prepara il contratto, aggiorna lo stato del mezzo e segnala eventuali sovrapposizioni con manutenzioni o fermi tecnici. Il team può quindi partire dalla stessa informazione, riducendo controlli su fogli, chat e calendari separati. In una configurazione reale, regole tariffarie, permessi, notifiche e automazioni vanno adattati alle sedi e al processo dell’azienda. La demo interattiva mostra il modello operativo con dati dimostrativi, senza creare prenotazioni reali.",
-    overviewTitle: "Dal calendario a una regia operativa.",
+    overviewTitle: "Dal calendario alla gestione quotidiana.",
     overview: [
-      "Un planner utile non si limita a colorare intervalli. Deve rendere leggibile la relazione tra richiesta, veicolo, cliente, sede, tariffa e attività da completare. Se una di queste informazioni resta fuori dal sistema, il banco deve ricostruire il contesto prima di ogni decisione. Fleetum imposta il booking come origine di un flusso: i dati confermati alimentano contratto, uscita, rientro e reporting.",
+      "Un planner utile non si limita a colorare intervalli. Deve rendere leggibile la relazione tra richiesta, veicolo, cliente, sede, tariffa e attività da completare. Se una di queste informazioni resta fuori dal sistema, il banco deve ricostruire il contesto prima di ogni decisione. In Fleetum i dati confermati nel booking alimentano contratto, uscita, rientro e report.",
       "La disponibilità deve tenere conto non solo delle prenotazioni già confermate, ma anche di rientri previsti, fermi tecnici e manutenzioni programmate. La vista operativa evidenzia le priorità senza dichiarare automazioni non ancora verificate. L’obiettivo è ridurre le verifiche ripetitive e permettere al team di capire subito dove esiste un conflitto da risolvere.",
       "Per le aziende con più sedi, la stessa logica può essere estesa a filtri, permessi e responsabilità differenti. La configurazione va definita durante l’analisi iniziale: sedi, fasce orarie, classi veicolo, regole di assegnazione e condizioni commerciali non sono uguali per tutti gli autonoleggi.",
     ],
@@ -105,14 +105,14 @@ export const landingPages: Record<string, LandingPageData> = {
     kicker: "Documenti e firma",
     title: "Contratti digitali collegati a cliente, veicolo e booking.",
     description:
-      "Fleetum organizza dati, condizioni, documenti e firma del contratto di noleggio nello stesso flusso operativo.",
+      "Fleetum organizza dati, condizioni, documenti e firma dal booking al contratto di noleggio.",
     question: "Come si digitalizza un contratto di autonoleggio?",
     answer:
       "Digitalizzare un contratto di autonoleggio significa collegare il documento ai dati già approvati nel booking, evitando copie manuali tra sistemi diversi. Fleetum riunisce cliente, guidatori, veicolo, periodo, tariffa, extra e condizioni in un flusso che prepara il PDF e mantiene il documento associato alla prenotazione. La firma e l’invio possono essere integrati solo dopo aver definito validità, canali e responsabilità nel contesto produttivo. Il vantaggio operativo è avere una versione riconoscibile, uno stato leggibile e uno storico collegato al noleggio. La conformità legale non deriva dal solo software: modelli contrattuali, informative, conservazione e modalità di firma devono essere revisionati da professionisti. La demo interattiva mostra l’esperienza con dati dimostrativi, senza generare contratti validi né trasmettere documenti.",
     overviewTitle: "Un documento non dovrebbe perdere il suo contesto.",
     overview: [
       "Quando il contratto nasce da un file separato, ogni modifica rischia di introdurre differenze tra prenotazione, anagrafica e condizioni applicate. Fleetum tratta il documento come una fase del noleggio: i dati confermati vengono riutilizzati e restano collegati al veicolo e al cliente. Questo riduce la necessità di cercare l’ultima versione tra cartelle, email e chat.",
-      "Lo stato del contratto deve essere immediato: da preparare, da verificare, da firmare o completato. La piattaforma può organizzare questi passaggi e le relative evidenze, mentre i canali effettivi di firma e invio vanno selezionati in fase di implementazione. Non vengono dichiarate firme qualificate o conservazioni certificate senza una specifica integrazione verificata.",
+      "Lo stato del contratto deve essere immediato: da preparare, da verificare, da firmare o completato. Fleetum organizza questi passaggi e le relative evidenze, mentre i canali effettivi di firma e invio vanno selezionati in fase di implementazione. Non vengono dichiarate firme qualificate o conservazioni certificate senza una specifica integrazione verificata.",
       "I modelli devono riflettere il tipo di noleggio, le condizioni commerciali e le responsabilità aziendali. Per questo la configurazione non consiste solo nel caricare un logo: servono mappatura dei campi, gestione delle varianti, regole di accesso e un processo di approvazione dei testi.",
     ],
     outcomes: [

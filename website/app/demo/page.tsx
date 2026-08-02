@@ -26,11 +26,11 @@ export default function DemoPage() {
           <div className="detail-inner demo-layout">
             <div className="demo-copy">
               <Breadcrumbs items={[{ label: "Demo", href: "/demo" }]} />
-              <span className="kicker">Demo Fleetum · percorso guidato</span>
-              <h1>20 minuti sul tuo flusso reale.</h1>
+              <span className="kicker">Demo personalizzata · 20 minuti</span>
+              <h1>Partiamo da sedi, flotta e priorità.</h1>
               <p>
-                Partiamo da sedi, flotta e priorità per mostrare solo ciò che
-                serve al tuo team.
+                Ti mostriamo booking, contratti e controlli rilevanti per il
+                tuo team.
               </p>
               <a className="demo-tour-link" href="/tour">
                 Preferisci vedere prima il prodotto? Apri la demo interattiva.

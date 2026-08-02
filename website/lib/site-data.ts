@@ -29,7 +29,7 @@ export const primaryNav: PrimaryNavItem[] = [
   {
     href: "/prodotto",
     label: "Prodotto",
-    description: "Il flusso operativo completo",
+    description: "Booking, contratti, flotta e report",
   },
   {
     href: "/moduli",
@@ -96,7 +96,7 @@ export const modules = [
     name: "Veicoli",
     copy: "Targhe, sedi, disponibilità, revisioni e manutenzione.",
     detail:
-      "Ogni mezzo mantiene un quadro operativo unico, leggibile dal banco e dalla direzione.",
+      "Ogni mezzo conserva booking, stato, sede e attività tecniche in una scheda consultabile dal team.",
   },
   {
     number: "05",
