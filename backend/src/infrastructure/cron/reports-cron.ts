@@ -1,4 +1,6 @@
 import cron, { ScheduledTask } from "node-cron";
+import { hasFeature } from "../../application/services/feature-entitlements-service.js";
+import { LicensePolicyService } from "../../application/services/license-policy-service.js";
 import { prisma } from "../database/prisma/client.js";
 import { EmailQueueService } from "../email/email-queue-service.js";
 import { logger } from "../logging/logger.js";
@@ -14,6 +16,9 @@ const shouldRunNow = (settings: any, now: Date) => {
   if (freq === "monthly") return now.getDate() === 1;
   return false;
 };
+
+export const canRunScheduledReport = (plan: string | null | undefined, settings: unknown, now: Date) =>
+  hasFeature(plan, "scheduled_reports") && shouldRunNow(settings, now);
 
 const escapePdfText = (text: string) =>
   text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
@@ -51,7 +56,10 @@ const buildSimplePdf = (title: string, body: string) => {
   return Buffer.from(header + objects.join("") + xref + trailer, "utf8");
 };
 
-export const startReportsCron = (emailQueue: EmailQueueService): ScheduledTask => {
+export const startReportsCron = (
+  emailQueue: EmailQueueService,
+  licensePolicyService: LicensePolicyService
+): ScheduledTask => {
   return cron.schedule("* * * * *", async () => {
     const now = new Date();
     try {
@@ -66,7 +74,8 @@ export const startReportsCron = (emailQueue: EmailQueueService): ScheduledTask =
       }
 
       for (const [tenantId, settings] of latestByTenant.entries()) {
-        if (!shouldRunNow(settings, now)) continue;
+        const entitlements = await licensePolicyService.getTenantEntitlements(tenantId);
+        if (!canRunScheduledReport(entitlements.plan, settings, now)) continue;
         const recipients = Array.isArray(settings?.recipients) ? settings.recipients : [];
         if (!recipients.length) continue;
 

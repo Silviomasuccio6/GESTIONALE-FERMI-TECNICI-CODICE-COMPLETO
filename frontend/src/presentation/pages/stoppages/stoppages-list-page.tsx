@@ -5,7 +5,6 @@ import { stoppagesUseCases } from "../../../application/usecases/stoppages-useca
 import { stoppageStatusOptions } from "../../../domain/constants/stoppage-status";
 import { FleetumBlockLoader } from "../../components/brand/fleetum-logo-loader";
 import { EmptyState } from "../../components/common/table";
-import { PremiumLockGate } from "../../components/common/premium-lock-gate";
 import { PageHeader } from "../../components/layout/page-header";
 import { StoppageQuickPanel } from "../../components/stoppages/stoppage-quick-panel";
 import { StoppageStatusBadge } from "../../components/stoppages/status-badge";
@@ -324,10 +323,10 @@ export const StoppagesListPage = () => {
         <Button variant="outline" size="sm" disabled={(data?.total ?? 0) <= page * 10} onClick={() => setPage((p) => p + 1)}>Succ.</Button>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr]">
-        <Card className="saas-surface">
-          <CardHeader className="pb-3"><CardTitle className="text-base">Azioni Massive</CardTitle></CardHeader>
-          {can("bulk_actions") ? (
+      <div className={`grid gap-3 ${can("bulk_actions") ? "xl:grid-cols-[1.2fr_1fr]" : "xl:grid-cols-1"}`}>
+        {can("bulk_actions") ? (
+          <Card className="saas-surface">
+            <CardHeader className="pb-3"><CardTitle className="text-base">Azioni Massive</CardTitle></CardHeader>
             <CardContent className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Selezionati: {selectedIds.length}</span>
               <Select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)}>
@@ -346,29 +345,8 @@ export const StoppagesListPage = () => {
                 Reminder bulk
               </Button>
             </CardContent>
-          ) : (
-            <PremiumLockGate feature="bulk_actions" title="Azioni massive bloccate" description="Bulk status e reminder bulk richiedono almeno il piano PRO.">
-              <CardContent className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-muted-foreground">Selezionati: {selectedIds.length}</span>
-                <Select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)}>
-                  {statusOptions
-                    .filter((x) => x.value)
-                    .map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                </Select>
-                <Button variant="outline" disabled>
-                  Applica stato
-                </Button>
-                <Button variant="secondary" disabled>
-                  Reminder bulk
-                </Button>
-              </CardContent>
-            </PremiumLockGate>
-          )}
-        </Card>
+          </Card>
+        ) : null}
 
         <Card className="saas-surface">
           <CardHeader className="pb-3"><CardTitle className="text-base">Centro Alert</CardTitle></CardHeader>

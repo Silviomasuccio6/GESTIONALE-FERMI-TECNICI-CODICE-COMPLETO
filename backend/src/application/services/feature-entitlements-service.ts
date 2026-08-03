@@ -1,10 +1,15 @@
 import {
   COMMERCIAL_PLAN_CATALOG,
+  PLAN_ENTITLEMENTS as SHARED_PLAN_ENTITLEMENTS,
   PLAN_MONTHLY_PRICING_EUR as SHARED_PLAN_MONTHLY_PRICING_EUR,
   PLAN_YEARLY_PRICING_EUR as SHARED_PLAN_YEARLY_PRICING_EUR,
-  SAAS_PLAN_CODES
+  SAAS_PLAN_CODES,
+  getCommercialFeatureRequiredPlan,
+  getCommercialPlanFeatures,
+  hasCommercialPlanFeature,
+  normalizeSaasPlan
 } from "@fleetum/commercial-plan-catalog";
-import type { SaasPlanCode } from "@fleetum/commercial-plan-catalog";
+import type { FeatureKey as SharedFeatureKey, SaasPlanCode } from "@fleetum/commercial-plan-catalog";
 
 export { COMMERCIAL_PLAN_CATALOG };
 
@@ -26,80 +31,27 @@ export const PLAN_YEARLY_PRICING_EUR: Record<SaasPlan, number> = {
   ...SHARED_PLAN_YEARLY_PRICING_EUR
 };
 
-const STARTER_FEATURES = [
-  "dashboard_overview",
-  "tenant_basic_view",
-  "users_basic",
-  "vehicles_basic",
-  "fermi_basic",
-  "reports_basic",
-  "alerts_basic",
-  "export_pdf_basic"
-] as const;
-
-const PRO_FEATURES = [
-  "reports_advanced",
-  "export_csv",
-  "advanced_filters",
-  "scheduled_reports",
-  "bulk_actions",
-  "alerts_advanced",
-  "integrations_basic",
-  "audit_standard"
-] as const;
-
-const ENTERPRISE_FEATURES = [
-  "api_access",
-  "sso",
-  "custom_roles",
-  "audit_advanced",
-  "automations_advanced",
-  "webhooks",
-  "multi_workspace_controls",
-  "priority_support_flags",
-  "security_insights",
-  "white_label_flags"
-] as const;
-
-export type FeatureKey =
-  | (typeof STARTER_FEATURES)[number]
-  | (typeof PRO_FEATURES)[number]
-  | (typeof ENTERPRISE_FEATURES)[number];
+export type FeatureKey = SharedFeatureKey;
 
 export const PLAN_ENTITLEMENTS: Record<SaasPlan, readonly FeatureKey[]> = {
-  STARTER: STARTER_FEATURES,
-  PRO: PRO_FEATURES,
-  ENTERPRISE: ENTERPRISE_FEATURES
+  STARTER: SHARED_PLAN_ENTITLEMENTS.STARTER,
+  PRO: SHARED_PLAN_ENTITLEMENTS.PRO,
+  ENTERPRISE: SHARED_PLAN_ENTITLEMENTS.ENTERPRISE
 };
 
-const CUMULATIVE_ENTITLEMENTS: Record<SaasPlan, Set<FeatureKey>> = {
-  STARTER: new Set(STARTER_FEATURES),
-  PRO: new Set([...STARTER_FEATURES, ...PRO_FEATURES]),
-  ENTERPRISE: new Set([...STARTER_FEATURES, ...PRO_FEATURES, ...ENTERPRISE_FEATURES])
-};
+export const ensureKnownPlan = (plan: string | null | undefined): SaasPlan => normalizeSaasPlan(plan);
 
-export const ensureKnownPlan = (plan: string | null | undefined): SaasPlan => {
-  if (plan === "STARTER" || plan === "PRO" || plan === "ENTERPRISE") return plan;
-  return "STARTER";
-};
+export const getFeatureListForPlan = (plan: string | null | undefined): FeatureKey[] =>
+  getCommercialPlanFeatures(plan);
 
-export const getFeatureListForPlan = (plan: string | null | undefined): FeatureKey[] => {
-  const normalizedPlan = ensureKnownPlan(plan);
-  return Array.from(CUMULATIVE_ENTITLEMENTS[normalizedPlan]);
-};
+export const hasFeature = (plan: string | null | undefined, feature: string): feature is FeatureKey =>
+  hasCommercialPlanFeature(plan, feature);
 
-export const hasFeature = (plan: string | null | undefined, feature: string): feature is FeatureKey => {
-  const normalizedPlan = ensureKnownPlan(plan);
-  return CUMULATIVE_ENTITLEMENTS[normalizedPlan].has(feature as FeatureKey);
-};
-
-export const getRequiredPlanForFeature = (feature: string): SaasPlan | null => {
-  const match = (SAAS_PLANS as readonly SaasPlan[]).find((plan) => CUMULATIVE_ENTITLEMENTS[plan].has(feature as FeatureKey));
-  return match ?? null;
-};
+export const getRequiredPlanForFeature = (feature: string): SaasPlan | null =>
+  getCommercialFeatureRequiredPlan(feature);
 
 export const getAllowedPlansForFeature = (feature: string): SaasPlan[] => {
-  return (SAAS_PLANS as readonly SaasPlan[]).filter((plan) => CUMULATIVE_ENTITLEMENTS[plan].has(feature as FeatureKey));
+  return (SAAS_PLANS as readonly SaasPlan[]).filter((plan) => hasCommercialPlanFeature(plan, feature));
 };
 
 export const getPlanMonthlyPrice = (plan: string | null | undefined): number => {

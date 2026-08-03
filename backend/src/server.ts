@@ -10,7 +10,7 @@ import { PrivacyComplianceService } from "./application/services/privacy-complia
 import { prisma } from "./infrastructure/database/prisma/client.js";
 import { logger } from "./infrastructure/logging/logger.js";
 import { PrismaAuditLogRepository } from "./infrastructure/repositories/prisma-audit-log-repository.js";
-import { emailQueueCronService, reminderCronUseCase } from "./interfaces/http/routes/index.js";
+import { emailQueueCronService, licensePolicyService, reminderCronUseCase } from "./interfaces/http/routes/index.js";
 import { env } from "./shared/config/env.js";
 
 const app = createApp();
@@ -29,7 +29,7 @@ const platformServer = platformApp.listen(env.PLATFORM_PORT, env.PLATFORM_BIND_H
 
 const reminderTask = startReminderCron(reminderCronUseCase);
 const emailQueueTask = startEmailQueueCron(emailQueueCronService);
-const reportsTask = startReportsCron(emailQueueCronService);
+const reportsTask = startReportsCron(emailQueueCronService, licensePolicyService);
 const privacyRetentionTask = startPrivacyRetentionCron(new PrivacyComplianceService());
 const billingDunningTask = startBillingDunningCron(new BillingDunningService(new PrismaAuditLogRepository()));
 

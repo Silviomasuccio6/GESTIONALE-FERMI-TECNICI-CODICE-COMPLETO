@@ -12,6 +12,8 @@ import { CookieConsentBanner } from "../components/privacy/cookie-consent-banner
 import { ProtectedRoute } from "./protected-route";
 import { GlobalTextTranslator } from "../components/i18n/global-text-translator";
 import { publicPrerenderRoutes } from "../../seo/public-prerender-routes";
+import { getRequiredFeatureForAppPath } from "../../domain/policies/feature-visibility";
+import { FeatureProtectedRoute } from "./feature-protected-route";
 
 const DashboardPage = lazy(() => import("../pages/dashboard/dashboard-page").then((m) => ({ default: m.DashboardPage })));
 const StoppagesListPage = lazy(() => import("../pages/stoppages/stoppages-list-page").then((m) => ({ default: m.StoppagesListPage })));
@@ -38,6 +40,11 @@ const BillingRecoveryPage = lazy(() => import("../pages/billing/billing-recovery
 const CompanyOnboardingPage = lazy(() => import("../pages/onboarding/company-onboarding-page").then((m) => ({ default: m.CompanyOnboardingPage })));
 
 const withPageLoader = (element: JSX.Element) => <Suspense fallback={<PageLoader />}>{element}</Suspense>;
+
+const withFeatureProtection = (pathname: string, element: JSX.Element) => {
+  const feature = getRequiredFeatureForAppPath(pathname);
+  return feature ? <FeatureProtectedRoute feature={feature}>{element}</FeatureProtectedRoute> : element;
+};
 
 const ContinueOnPublicSite = () => {
   const location = useLocation();
@@ -123,7 +130,7 @@ export const AppRoutes = () => (
         <Route path="utenti" element={withPageLoader(<UsersPage />)} />
         <Route path="profilo" element={withPageLoader(<ProfileSettingsPage />)} />
         <Route path="profilo/azienda" element={withPageLoader(<CompanyProfilePage />)} />
-        <Route path="statistiche" element={withPageLoader(<StatsPage />)} />
+        <Route path="statistiche" element={withFeatureProtection("/statistiche", withPageLoader(<StatsPage />))} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,10 +1,14 @@
-import { Router } from "express";
+import { RequestHandler, Router } from "express";
+import { FeatureKey } from "../../../application/services/feature-entitlements-service.js";
 import { importUpload } from "../../../infrastructure/storage/import-upload.js";
 import { MasterDataController } from "../controllers/master-data-controller.js";
 import { requirePermissions } from "../middlewares/permissions.js";
 import { asyncHandler } from "./async-handler.js";
 
-export const masterDataRoutes = (controller: MasterDataController) => {
+export const masterDataRoutes = (
+  controller: MasterDataController,
+  requireFeature: (feature: FeatureKey) => RequestHandler
+) => {
   const router = Router();
 
   router.get("/sites", requirePermissions("sites:read"), asyncHandler(controller.listSites));
@@ -34,10 +38,16 @@ export const masterDataRoutes = (controller: MasterDataController) => {
     asyncHandler(controller.syncVehicleDeadlinesCalendar)
   );
   router.get("/vehicle-maintenances", requirePermissions("vehicles:read"), asyncHandler(controller.listVehicleMaintenances));
-  router.get("/vehicle-maintenances/export.csv", requirePermissions("vehicles:read"), asyncHandler(controller.exportVehicleMaintenancesCsv));
+  router.get(
+    "/vehicle-maintenances/export.csv",
+    requirePermissions("vehicles:read"),
+    requireFeature("export_csv"),
+    asyncHandler(controller.exportVehicleMaintenancesCsv)
+  );
   router.get(
     "/vehicle-maintenances/export.xlsx",
     requirePermissions("vehicles:read"),
+    requireFeature("export_csv"),
     asyncHandler(controller.exportVehicleMaintenancesXlsx)
   );
   router.post("/vehicle-maintenances", requirePermissions("vehicles:write"), asyncHandler(controller.createVehicleMaintenance));

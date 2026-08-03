@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ChevronDown, ChevronUp, Crown, Lock, SlidersHorizontal } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { ArrowDownRight, ArrowUpRight, ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -17,7 +17,6 @@ import { statsUseCases } from "../../../application/usecases/stats-usecases";
 import { stoppageStatusLabel } from "../../../domain/constants/stoppage-status";
 import { cn } from "../../../lib/utils";
 import { CardStat } from "../../components/common/table";
-import { PremiumLockGate } from "../../components/common/premium-lock-gate";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -108,15 +107,13 @@ const defaultFilters = (): FilterState => {
 const buildExportFilenameDate = () => new Date().toISOString().slice(0, 10);
 
 export const StatsPage = () => {
-  const navigate = useNavigate();
   const location = useLocation();
-  const { can, requiredPlan } = useEntitlements();
+  const { can } = useEntitlements();
   const canViewVehicleEconomics = useAuthStore((state) => state.user?.permissions.includes("vehicle:economics:read") ?? false);
   const canExportReports = useAuthStore((state) => state.user?.permissions.includes("reports:export") ?? false);
   const canReportsAdvanced = can("reports_advanced");
   const canAdvancedFilters = can("advanced_filters");
   const canExportCsv = can("export_csv");
-  const lockWholePage = !canReportsAdvanced;
 
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("90d");
   const [draftFilters, setDraftFilters] = useState<FilterState>(() => defaultFilters());
@@ -423,7 +420,7 @@ export const StatsPage = () => {
 
   return (
     <section className="relative space-y-4">
-      <div className={cn("space-y-4", lockWholePage && "pointer-events-none select-none blur-[3px] saturate-[0.84] opacity-60")}>
+      <div className="space-y-4">
         <div className="sticky top-16 z-20 flex justify-end">
           <div className="relative">
             <Button variant="outline" className="h-8" onClick={() => setFiltersOpen((old) => !old)}>
@@ -534,21 +531,6 @@ export const StatsPage = () => {
                   />
                 </div>
               </div>
-            ) : canReportsAdvanced ? (
-              <PremiumLockGate
-                feature="advanced_filters"
-                locked={!canAdvancedFilters}
-                requiredPlanOverride={requiredPlan("advanced_filters")}
-                compact
-                title="Filtri avanzati bloccati"
-                description="Ricerca per targa, marca e modello disponibile dal piano PRO."
-              >
-                <div className="grid gap-2 md:grid-cols-3">
-                  <Input value="" placeholder="Targa" disabled />
-                  <Input value="" placeholder="Marca" disabled />
-                  <Input value="" placeholder="Modello" disabled />
-                </div>
-              </PremiumLockGate>
             ) : null}
 
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -983,30 +965,6 @@ export const StatsPage = () => {
         </div>
       </div>
 
-      {lockWholePage ? (
-        <div className="pointer-events-none fixed bottom-0 left-0 right-0 top-16 z-30 lg:left-72">
-          <div className="absolute inset-0 bg-background/28 backdrop-blur-[2px]" />
-          <div className="absolute inset-x-0 top-[26vh] flex justify-center px-4">
-            <div className="pointer-events-auto w-full max-w-[520px] rounded-2xl border border-violet-300/55 bg-card/93 p-5 text-center shadow-xl backdrop-blur-md">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-300">
-                <Lock className="h-5 w-5" />
-              </div>
-              <p className="mt-3 text-2xl font-semibold text-foreground">Report avanzati bloccati</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Questa sezione richiede il piano PRO. Passa a PRO per sbloccare trend, KPI avanzati ed export.
-              </p>
-              <Button
-                type="button"
-                className="mt-4 h-11 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-500 to-fuchsia-500 px-6 font-semibold text-white shadow-[0_10px_28px_rgba(124,58,237,0.38)] hover:brightness-110"
-                onClick={() => navigate("/upgrade")}
-              >
-                <Crown className="h-4 w-4" />
-                PASSA A PRO
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 };

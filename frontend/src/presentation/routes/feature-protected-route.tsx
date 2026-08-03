@@ -9,9 +9,9 @@ type FeatureProtectedRouteProps = {
 };
 
 export const FeatureProtectedRoute = ({ feature, children }: FeatureProtectedRouteProps) => {
-  const { loading, can } = useEntitlements();
+  const { loading, loaded, error, can } = useEntitlements();
 
-  if (loading) {
+  if (loading || (!loaded && !error)) {
     return (
       <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         <FleetumLogoLoader size="md" variant="light" />
@@ -20,7 +20,7 @@ export const FeatureProtectedRoute = ({ feature, children }: FeatureProtectedRou
     );
   }
 
-  if (!can(feature)) {
+  if (error || !can(feature)) {
     return <Navigate to="/dashboard" replace />;
   }
 

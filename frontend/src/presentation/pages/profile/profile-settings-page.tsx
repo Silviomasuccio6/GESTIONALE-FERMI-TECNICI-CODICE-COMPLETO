@@ -3,10 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { authUseCases } from "../../../application/usecases/auth-usecases";
 import { settingsUseCases } from "../../../application/usecases/settings-usecases";
 import { useAuthStore } from "../../../application/stores/auth-store";
-import { PAID_FEATURES, FEATURE_LABELS } from "../../../domain/constants/feature-labels";
-import { FeatureKey } from "../../../domain/constants/entitlements";
 import { ThemeMode, getStoredTheme, setTheme } from "../../../infrastructure/theme/theme-manager";
-import { PremiumLockGate } from "../../components/common/premium-lock-gate";
 import { PageHeader } from "../../components/layout/page-header";
 import { Alert } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
@@ -36,20 +33,10 @@ const defaultSettings: SettingsState = {
 export const ProfileSettingsPage = () => {
   const navigate = useNavigate();
   const { user, setUser, logout } = useAuthStore();
-  const { can, requiredPlan } = useEntitlements();
+  const { can } = useEntitlements();
   const canScheduledReports = can("scheduled_reports");
   const canIntegrations = can("integrations_basic");
   const canWebhooks = can("webhooks");
-  const premiumFeatureList = useMemo(
-    () =>
-      PAID_FEATURES.map((feature) => ({
-        feature,
-        label: FEATURE_LABELS[feature as FeatureKey],
-        enabled: can(feature as FeatureKey),
-        required: requiredPlan(feature as FeatureKey)
-      })),
-    [can, requiredPlan]
-  );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [logoutAllDevices, setLogoutAllDevices] = useState(false);
@@ -87,21 +74,31 @@ export const ProfileSettingsPage = () => {
     Promise.all([
       settingsUseCases.getSla(),
       settingsUseCases.getPlaybooks(),
-      settingsUseCases.getReports(),
-      settingsUseCases.getIntegrations(),
       authUseCases.sessions()
     ])
-      .then(([slaRes, playbooksRes, reportsRes, integrationsRes, sessionsRes]) => {
+      .then(([slaRes, playbooksRes, sessionsRes]) => {
         setSla(slaRes);
         setPlaybooks(playbooksRes);
-        setReports(reportsRes);
-        setIntegrations(integrationsRes);
         setSessions((sessionsRes.data ?? []).filter((x) => !x.revokedAt));
       })
       .catch(() => {
         // ignore init errors
       });
   }, []);
+
+  useEffect(() => {
+    if (!canScheduledReports) return;
+    settingsUseCases.getReports().then(setReports).catch(() => {
+      // Keep the form usable with defaults if the optional settings call fails.
+    });
+  }, [canScheduledReports]);
+
+  useEffect(() => {
+    if (!canWebhooks) return;
+    settingsUseCases.getIntegrations().then(setIntegrations).catch(() => {
+      // Keep the form usable with defaults if the optional settings call fails.
+    });
+  }, [canWebhooks]);
 
   const currentSessionId = null;
 
@@ -521,38 +518,7 @@ export const ProfileSettingsPage = () => {
               </div>
             </CardContent>
           </Card>
-        ) : (
-          <PremiumLockGate
-            feature="scheduled_reports"
-            title="Report schedulati bloccati"
-            description="Automazione invio report disponibile dal piano PRO."
-          >
-            <Card>
-              <CardHeader><CardTitle className="text-base">Report schedulati</CardTitle></CardHeader>
-              <CardContent className="grid gap-3 md:grid-cols-2">
-                <div className="grid gap-1.5">
-                  <Label>Abilita report schedulati</Label>
-                  <Select value="NO" disabled>
-                    <option value="NO">No</option>
-                  </Select>
-                </div>
-                <div className="grid gap-1.5">
-                  <Label>Frequenza</Label>
-                  <Select value="weekly" disabled>
-                    <option value="weekly">Settimanale</option>
-                  </Select>
-                </div>
-                <div className="grid gap-1.5 md:col-span-2">
-                  <Label>Destinatari report</Label>
-                  <Input value="" placeholder="nome@azienda.it" disabled />
-                </div>
-                <div className="md:col-span-2">
-                  <Button disabled>Salva report schedulati</Button>
-                </div>
-              </CardContent>
-            </Card>
-          </PremiumLockGate>
-        )}
+        ) : null}
 
         {canIntegrations ? (
           <Card>
@@ -562,12 +528,7 @@ export const ProfileSettingsPage = () => {
                 Connettori base attivi. Per configurazioni webhook avanzate serve il piano ENTERPRISE.
               </div>
 
-              <PremiumLockGate
-                feature="webhooks"
-                compact
-                title="Webhook bloccati"
-                description="Configurazione webhook disponibile dal piano ENTERPRISE."
-              >
+              {canWebhooks ? (
                 <div className="grid gap-3">
                   <div className="grid gap-1.5">
                     <Label>ERP Webhook URL</Label>
@@ -590,65 +551,11 @@ export const ProfileSettingsPage = () => {
                     Salva integrazioni
                   </Button>
                 </div>
-              </PremiumLockGate>
+              ) : null}
             </CardContent>
           </Card>
-        ) : (
-          <PremiumLockGate
-            feature="integrations_basic"
-            title="Integrazioni bloccate"
-            description="Le integrazioni base sono disponibili dal piano PRO."
-          >
-            <Card>
-              <CardHeader><CardTitle className="text-base">Integrazioni</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid gap-1.5">
-                  <Label>ERP Webhook URL</Label>
-                  <Input value="" placeholder="https://..." disabled />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label>Telematics Webhook URL</Label>
-                  <Input value="" placeholder="https://..." disabled />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label>Ticketing Webhook URL</Label>
-                  <Input value="" placeholder="https://..." disabled />
-                </div>
-                <Button disabled>Salva integrazioni</Button>
-              </CardContent>
-            </Card>
-          </PremiumLockGate>
-        )}
+        ) : null}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Matrice funzionalità premium</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {premiumFeatureList.map((entry) =>
-            entry.enabled ? (
-              <div key={entry.feature} className="rounded-xl border bg-card p-3">
-                <p className="text-sm font-semibold text-foreground">{entry.label}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Attiva nel tuo piano corrente.</p>
-              </div>
-            ) : (
-              <PremiumLockGate
-                key={entry.feature}
-                feature={entry.feature as FeatureKey}
-                compact
-                title={entry.label}
-                description={`Disponibile dal piano ${entry.required ?? "PRO"}.`}
-              >
-                <div className="rounded-xl border bg-card p-3">
-                  <p className="text-sm font-semibold text-foreground">{entry.label}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Modulo premium in anteprima.</p>
-                </div>
-              </PremiumLockGate>
-            )
-          )}
-        </CardContent>
-      </Card>
 
       {error ? <Alert className="border-destructive/50 bg-destructive/10 text-destructive">{error}</Alert> : null}
       {success ? <Alert className="border-emerald-500/50 bg-emerald-50 text-emerald-700">{success}</Alert> : null}
