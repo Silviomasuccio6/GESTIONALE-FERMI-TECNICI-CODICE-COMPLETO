@@ -11,7 +11,6 @@ import {
   Gauge,
   KanbanSquare,
   LogOut,
-  Lock,
   Menu,
   Moon,
   PanelLeftClose,
@@ -32,6 +31,7 @@ import { authUseCases } from "../../../application/usecases/auth-usecases";
 import { notificationsUseCases } from "../../../application/usecases/notifications-usecases";
 import { useAuthStore } from "../../../application/stores/auth-store";
 import { FeatureKey } from "../../../domain/constants/entitlements";
+import { filterFeatureVisibleItems } from "../../../domain/policies/feature-visibility";
 import { canManageTenantBilling } from "../../../domain/policies/billing-access";
 import { ThemeMode, getStoredTheme, setTheme } from "../../../infrastructure/theme/theme-manager";
 import { getApiBaseUrl } from "../../../infrastructure/api/api-base-url";
@@ -191,12 +191,10 @@ export const AppLayout = () => {
   const {
     can,
     plan,
-    requiredPlan,
     expiresAt,
     daysRemaining,
     expiringSoon,
-    loading: entitlementsLoading,
-    error: entitlementsError
+    loaded: entitlementsLoaded
   } = useEntitlements();
   const notificationsMenuRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -430,9 +428,21 @@ export const AppLayout = () => {
     };
   }, []);
 
-  const visibleNavSections = useMemo(() => navSections, []);
+  const visibleNavSections = useMemo(
+    () =>
+      navSections
+        .map((section) => ({
+          ...section,
+          items: filterFeatureVisibleItems(section.items, entitlementsLoaded, can)
+        }))
+        .filter((section) => section.items.length > 0),
+    [can, entitlementsLoaded]
+  );
 
-  const visibleMobileNavItems = useMemo(() => mobileNavItems, []);
+  const visibleMobileNavItems = useMemo(
+    () => filterFeatureVisibleItems(mobileNavItems, entitlementsLoaded, can),
+    [can, entitlementsLoaded]
+  );
 
   const activeLabel = useMemo(() => {
     const findActiveLabel = (items: NavItem[]): string | null => {
@@ -850,8 +860,6 @@ export const AppLayout = () => {
                   const active = isNavItemActive(item, location.pathname);
                   const Icon = item.icon;
                   const isGroup = Boolean(item.children?.length);
-                  const locked = item.feature ? !entitlementsLoading && !entitlementsError && !can(item.feature) : false;
-                  const planNeeded = item.feature ? requiredPlan(item.feature) : null;
                   if (isGroup) {
                     const groupOpen = Boolean(openNavGroups[item.key]);
                     const contentId = `nav-group-${item.key}`;
@@ -884,8 +892,6 @@ export const AppLayout = () => {
                             {item.children?.map((child) => {
                               const childActive = isNavItemActive(child, location.pathname);
                               const ChildIcon = child.icon;
-                              const childLocked = child.feature ? !entitlementsLoading && !entitlementsError && !can(child.feature) : false;
-                              const childPlanNeeded = child.feature ? requiredPlan(child.feature) : null;
                               return (
                                 <Link
                                   key={child.key}
@@ -895,19 +901,11 @@ export const AppLayout = () => {
                                     "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition duration-200",
                                     childActive
                                       ? "g-nav-active bg-primary text-primary-foreground"
-                                      : childLocked
-                                        ? "text-slate-500/95 hover:bg-violet-100/50 hover:text-violet-700 dark:text-slate-300 dark:hover:bg-violet-500/15 dark:hover:text-violet-200"
-                                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
                                   )}
                                 >
                                   <ChildIcon className="h-4 w-4" />
                                   <span>{child.label}</span>
-                                  {childLocked ? (
-                                    <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-300/70 bg-violet-100/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-violet-700 dark:border-violet-400/45 dark:bg-violet-500/15 dark:text-violet-200">
-                                      <Lock className="h-3 w-3" />
-                                      {childPlanNeeded === "ENTERPRISE" ? "Enterprise" : "Pro"}
-                                    </span>
-                                  ) : null}
                                 </Link>
                               );
                             })}
@@ -925,19 +923,11 @@ export const AppLayout = () => {
                         "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition duration-200",
                         active
                           ? "g-nav-active bg-primary text-primary-foreground"
-                          : locked
-                            ? "text-slate-500/95 hover:bg-violet-100/50 hover:text-violet-700 dark:text-slate-300 dark:hover:bg-violet-500/15 dark:hover:text-violet-200"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
                       )}
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
-                      {locked ? (
-                        <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-300/70 bg-violet-100/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-violet-700 dark:border-violet-400/45 dark:bg-violet-500/15 dark:text-violet-200">
-                          <Lock className="h-3 w-3" />
-                          {planNeeded === "ENTERPRISE" ? "Enterprise" : "Pro"}
-                        </span>
-                      ) : null}
                     </Link>
                   );
                 })}
@@ -1056,8 +1046,6 @@ export const AppLayout = () => {
                   !location.pathname.startsWith("/fermi/calendario")
                 : location.pathname.startsWith(item.to);
             const Icon = item.icon;
-            const locked = item.feature ? !entitlementsLoading && !entitlementsError && !can(item.feature) : false;
-            const planNeeded = item.feature ? requiredPlan(item.feature) : null;
             return (
               <Link
                 key={item.to}
@@ -1066,14 +1054,11 @@ export const AppLayout = () => {
                   "flex flex-col items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium",
                   active
                     ? "bg-primary text-primary-foreground"
-                    : locked
-                      ? "text-violet-600 dark:text-violet-300"
-                      : "text-muted-foreground"
+                    : "text-muted-foreground"
                 )}
               >
                 <Icon className="h-4 w-4" />
                 {item.label}
-                {locked ? <span className="text-[9px] uppercase">{planNeeded === "ENTERPRISE" ? "Ent" : "Pro"}</span> : null}
               </Link>
             );
           })}

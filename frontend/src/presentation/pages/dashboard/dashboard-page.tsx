@@ -6,7 +6,6 @@ import { stoppagesUseCases } from "../../../application/usecases/stoppages-useca
 import { statsUseCases } from "../../../application/usecases/stats-usecases";
 import { stoppageStatusLabel } from "../../../domain/constants/stoppage-status";
 import { FleetumBlockLoader } from "../../components/brand/fleetum-logo-loader";
-import { PremiumLockGate } from "../../components/common/premium-lock-gate";
 import { CardStat } from "../../components/common/table";
 import { PageHeader } from "../../components/layout/page-header";
 import { Button } from "../../components/ui/button";
@@ -348,7 +347,7 @@ export const DashboardPage = () => {
   const [view, setView] = useState<"overview" | "operations" | "activity">("overview");
   const [trendRange, setTrendRange] = useState<TrendRange>("30d");
   const [trendIndex, setTrendIndex] = useState(0);
-  const { can, requiredPlan } = useEntitlements();
+  const { can } = useEntitlements();
   const canReportsAdvanced = can("reports_advanced");
 
   const { data, loading, error } = useAsync(() => statsUseCases.dashboard(), []);
@@ -473,28 +472,22 @@ export const DashboardPage = () => {
             />
           </div>
 
-          <div className="g-charts-row grid gap-4 xl:grid-cols-3">
-            <Card className="saas-surface dashboard-enterprise-card xl:col-span-2">
+          <div className={`g-charts-row grid gap-4 ${canReportsAdvanced ? "xl:grid-cols-3" : "xl:grid-cols-1"}`}>
+            {canReportsAdvanced ? (
+              <Card className="saas-surface dashboard-enterprise-card xl:col-span-2">
               <CardHeader className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <CardTitle className="text-base">{activeTrendView.title}</CardTitle>
                     <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{activeTrendView.subtitle}</p>
                   </div>
-                  <div
-                    className={`flex items-center gap-1 rounded-xl border p-1 shadow-[0_12px_26px_-24px_rgba(15,23,42,0.4)] ${
-                      canReportsAdvanced
-                        ? "border-border/80 bg-background/70"
-                        : "border-border/70 bg-muted/40 opacity-75"
-                    }`}
-                  >
+                  <div className="flex items-center gap-1 rounded-xl border border-border/80 bg-background/70 p-1 shadow-[0_12px_26px_-24px_rgba(15,23,42,0.4)]">
                     {rangeOptions.map((option) => (
                       <Button
                         key={option.value}
                         size="sm"
                         variant={trendRange === option.value ? "default" : "ghost"}
                         className="h-7 px-3"
-                        disabled={!canReportsAdvanced}
                         onClick={() => setTrendRange(option.value)}
                       >
                         {option.label}
@@ -504,46 +497,30 @@ export const DashboardPage = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <PremiumLockGate
-                  feature="reports_advanced"
-                  locked={!canReportsAdvanced}
-                  requiredPlanOverride={requiredPlan("reports_advanced")}
-                  title="Trend avanzati bloccati"
-                  description="Analisi aperture/chiusure e reminder disponibile dal piano PRO."
-                >
                   <div className="saas-chart-shell relative h-[320px] rounded-xl p-2">
-                    {canReportsAdvanced ? (
-                      <>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
-                          aria-label="Trend precedente"
-                          onClick={goPrevTrend}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="absolute right-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
-                          aria-label="Trend successivo"
-                          onClick={goNextTrend}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </>
-                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
+                      aria-label="Trend precedente"
+                      onClick={goPrevTrend}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="absolute right-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
+                      aria-label="Trend successivo"
+                      onClick={goNextTrend}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
 
                     <div className="h-full px-9 py-1">
-                      {!canReportsAdvanced ? (
-                        <div className="relative grid h-full place-items-center rounded-lg border border-dashed border-border/75 bg-gradient-to-b from-muted/30 to-muted/10">
-                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(59,130,246,0.08),transparent_35%),radial-gradient(circle_at_80%_85%,rgba(99,102,241,0.1),transparent_40%)]" />
-                          <p className="text-xs font-medium text-slate-500 dark:text-slate-300">Trend disponibile dal piano PRO</p>
-                        </div>
-                      ) : trendStats.loading ? (
+                      {trendStats.loading ? (
                         <FleetumBlockLoader label="Caricamento trend" className="h-full min-h-0" />
                       ) : trendStats.error ? (
                         <div className="grid h-full place-items-center text-sm text-destructive">{trendStats.error}</div>
@@ -617,9 +594,9 @@ export const DashboardPage = () => {
                       ))}
                     </div>
                   </div>
-                </PremiumLockGate>
               </CardContent>
-            </Card>
+              </Card>
+            ) : null}
 
             <Card className="saas-surface dashboard-enterprise-card">
               <CardHeader>
