@@ -16,6 +16,7 @@
     "money:reconcile": "tsx src/scripts/reconcile-exact-money.ts",
     "money:reconcile:prod": "node dist/scripts/reconcile-exact-money.js",
     "money:verify-dual-write": "tsx src/scripts/verify-exact-money-dual-write.ts",
+    "pdf:preview": "node --import tsx src/scripts/generate-pdf-previews.ts",
     "privacy:pii-report": "tsx src/scripts/pii-report.ts",
     "privacy:retention:dry-run": "tsx src/scripts/privacy-retention.ts",
     "privacy:retention:run": "tsx src/scripts/privacy-retention.ts --run",

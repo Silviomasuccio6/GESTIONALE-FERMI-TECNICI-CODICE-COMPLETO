@@ -1,8 +1,17 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFPage } from "pdf-lib";
+import {
+  A4_PAGE_HEIGHT,
+  A4_PAGE_WIDTH,
+  containPdfImage,
+  pdfRgbFromHex,
+  sanitizePdfHex,
+  wrapPdfText
+} from "./pdf-document-design-system.js";
+import { buildProfessionalContractPdf } from "./professional-contract-pdf-renderer.js";
 
-type ContractBranding = {
+export type ContractBranding = {
   companyName?: string | null;
   companyAddress?: string | null;
   companyVat?: string | null;
@@ -15,7 +24,7 @@ type ContractBranding = {
   brandFont?: string | null;
 };
 
-type EnterpriseContractPdfInput = {
+export type EnterpriseContractPdfInput = {
   contract: {
     title: string;
     content: string;
@@ -127,8 +136,8 @@ type EnterpriseContractPdfInput = {
 
 type InfoItem = { label: string; value: string; emphasize?: boolean };
 
-const PAGE_W = 595.28;
-const PAGE_H = 841.89;
+const PAGE_W = A4_PAGE_WIDTH;
+const PAGE_H = A4_PAGE_HEIGHT;
 const MARGIN_X = 42;
 const MARGIN_BOTTOM = 54;
 
@@ -216,19 +225,8 @@ const formatNumber = (value?: number | null, digits = 0) => {
   return new Intl.NumberFormat("it-IT", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
 };
 
-const sanitizeHex = (value?: string | null, fallback = "#21375d") => {
-  const normalized = String(value ?? "").trim();
-  return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : fallback;
-};
-
-const hexToRgb = (hex: string) => {
-  const value = sanitizeHex(hex).slice(1);
-  return rgb(
-    parseInt(value.slice(0, 2), 16) / 255,
-    parseInt(value.slice(2, 4), 16) / 255,
-    parseInt(value.slice(4, 6), 16) / 255
-  );
-};
+const sanitizeHex = sanitizePdfHex;
+const hexToRgb = pdfRgbFromHex;
 
 const labelOf = (dictionary: Record<string, string>, raw?: string | null) => {
   const key = String(raw ?? "").trim().toUpperCase();
@@ -236,24 +234,7 @@ const labelOf = (dictionary: Record<string, string>, raw?: string | null) => {
   return dictionary[key] ?? key.replace(/_/g, " ");
 };
 
-const wrapLines = (text: string, maxWidth: number, font: PDFFont, fontSize: number) => {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (!normalized) return [""];
-  const words = normalized.split(" ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, fontSize) <= maxWidth) {
-      current = candidate;
-      continue;
-    }
-    if (current) lines.push(current);
-    current = word;
-  }
-  if (current) lines.push(current);
-  return lines;
-};
+const wrapLines = wrapPdfText;
 
 const maybeEmbedLogo = async (pdfDoc: PDFDocument, logoFilePath?: string | null): Promise<PDFImage | null> => {
   if (!logoFilePath) return null;
@@ -344,7 +325,13 @@ const compactJoin = (...values: Array<string | null | undefined>) =>
     .filter(Boolean)
     .join(" · ");
 
+const useProfessionalContractRenderer = (): boolean => true;
+
 export const buildEnterpriseContractPdf = async (input: EnterpriseContractPdfInput): Promise<Buffer> => {
+  if (useProfessionalContractRenderer()) {
+    return buildProfessionalContractPdf(input);
+  }
+
   const primaryHex = sanitizeHex(input.branding?.brandPrimary, "#1f3763");
   const accentHex = sanitizeHex(input.branding?.brandAccent, "#5b8bd9");
   const titleFontFamily = String(input.branding?.brandFont ?? "helvetica").toLowerCase();
@@ -360,11 +347,11 @@ export const buildEnterpriseContractPdf = async (input: EnterpriseContractPdfInp
       ? await pdfDoc.embedFont(StandardFonts.TimesRoman)
       : await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const companyName = asText(input.branding?.companyName, "Fleetum");
-  const companyAddress = asText(input.branding?.companyAddress, "Via Demo 1, 00100 Roma");
-  const companyVat = asText(input.branding?.companyVat, "P.IVA 00000000000");
-  const companyEmail = asText(input.branding?.companyEmail, "info@fleetops.demo");
-  const companyPhone = asText(input.branding?.companyPhone, "Tel. +39 000 0000000");
+  const companyName = asText(input.branding?.companyName, "Societa di noleggio");
+  const companyAddress = asText(input.branding?.companyAddress, "");
+  const companyVat = asText(input.branding?.companyVat, "");
+  const companyEmail = asText(input.branding?.companyEmail, "");
+  const companyPhone = asText(input.branding?.companyPhone, "");
 
   let fleetumMark: PDFImage | null = null;
   const pages: PDFPage[] = [];
@@ -375,7 +362,8 @@ export const buildEnterpriseContractPdf = async (input: EnterpriseContractPdfInp
       thickness: 0.6,
       color: hexToRgb("#d2daea")
     });
-    page.drawText(`${companyName} · ${companyVat}`, {
+    const footerIdentity = wrapLines(compactJoin(companyName, companyVat), 205, regularFont, 7.5)[0] ?? companyName;
+    page.drawText(footerIdentity, {
       x: MARGIN_X,
       y: 24,
       size: 7.5,
@@ -424,29 +412,61 @@ export const buildEnterpriseContractPdf = async (input: EnterpriseContractPdfInp
     "frontend/public/brand/fleetum-favicon.png",
     "../../frontend/public/brand/fleetum-favicon.png"
   ]);
+  const tenantLogo = await maybeEmbedLogo(pdfDoc, input.branding?.logoFilePath);
   const signatureImage = await maybeEmbedLogo(pdfDoc, input.contract.signatureFilePath);
 
-  page.drawText(companyName, {
-    x: MARGIN_X + 20,
-    y: PAGE_H - 66,
-    size: 16,
-    font: boldFont,
-    color: rgb(1, 1, 1)
+  let companyTextX = MARGIN_X;
+  if (tenantLogo) {
+    page.drawRectangle({
+      x: MARGIN_X,
+      y: PAGE_H - 104,
+      width: 112,
+      height: 54,
+      color: rgb(1, 1, 1),
+      opacity: 0.98
+    });
+    page.drawImage(
+      tenantLogo,
+      containPdfImage(tenantLogo, {
+        x: MARGIN_X + 10,
+        y: PAGE_H - 98,
+        width: 92,
+        height: 42
+      })
+    );
+    companyTextX = MARGIN_X + 128;
+  }
+
+  const companyTitleLines = wrapLines(companyName, PAGE_W - companyTextX - 175, boldFont, 14).slice(0, 2);
+  companyTitleLines.forEach((line, index) => {
+    page.drawText(line, {
+      x: companyTextX,
+      y: PAGE_H - 61 - index * 15,
+      size: 14,
+      font: boldFont,
+      color: rgb(1, 1, 1)
+    });
   });
-  page.drawText(`${companyAddress} · ${companyVat}`, {
-    x: MARGIN_X + 20,
-    y: PAGE_H - 84,
-    size: 9,
-    font: regularFont,
-    color: rgb(0.93, 0.95, 1)
-  });
-  page.drawText(`${companyEmail} · ${companyPhone}`, {
-    x: MARGIN_X + 20,
-    y: PAGE_H - 98,
-    size: 9,
-    font: regularFont,
-    color: rgb(0.93, 0.95, 1)
-  });
+  const legalLine = compactJoin(companyAddress, companyVat);
+  const contactLine = compactJoin(companyEmail, companyPhone);
+  if (legalLine) {
+    page.drawText(wrapLines(legalLine, PAGE_W - companyTextX - 175, regularFont, 8.2)[0] ?? legalLine, {
+      x: companyTextX,
+      y: PAGE_H - (companyTitleLines.length > 1 ? 94 : 80),
+      size: 8.2,
+      font: regularFont,
+      color: rgb(0.93, 0.95, 1)
+    });
+  }
+  if (contactLine) {
+    page.drawText(wrapLines(contactLine, PAGE_W - companyTextX - 175, regularFont, 8.2)[0] ?? contactLine, {
+      x: companyTextX,
+      y: PAGE_H - (companyTitleLines.length > 1 ? 108 : 94),
+      size: 8.2,
+      font: regularFont,
+      color: rgb(0.93, 0.95, 1)
+    });
+  }
   if (fleetumMark) {
     const markH = 18;
     const scaled = fleetumMark.scale(markH / fleetumMark.height);
@@ -690,16 +710,16 @@ export const buildEnterpriseContractPdf = async (input: EnterpriseContractPdfInp
     drawPremiumSection("Parti contrattuali");
     const gap = 14;
     const cardWidth = (contentWidth - gap) / 2;
-    const cardHeight = 170;
+    const cardHeight = 178;
     ensureSpace(cardHeight + 12, "Parti contrattuali");
     const topY = cursorY;
     drawPremiumCard(MARGIN_X, topY, cardWidth, cardHeight, leftTitle);
     drawPremiumCard(MARGIN_X + cardWidth + gap, topY, cardWidth, cardHeight, rightTitle);
     const drawColumn = (x: number, items: InfoItem[]) => {
-      let localY = topY - 44;
+      let localY = topY - 42;
       for (const item of items.slice(0, 5)) {
         drawPremiumLabelValue(item.label, item.value, x + 14, localY, cardWidth - 28, { strong: item.emphasize });
-        localY -= 31;
+        localY -= 29;
       }
     };
     drawColumn(MARGIN_X, leftItems);
@@ -1025,14 +1045,142 @@ export const buildEnterpriseContractPdf = async (input: EnterpriseContractPdfInp
     cursorY -= 4;
   };
 
+  const drawVersionedContractContent = () => {
+    drawSectionTitle(
+      "Condizioni contrattuali complete",
+      `Testo memorizzato nel contratto e generato dal template versione ${String(input.contract.templateVersion ?? "-")}.`
+    );
+
+    const notice = "Il riepilogo iniziale facilita la consultazione. Di seguito e riportato il testo contrattuale versionato senza aggiungere clausole generate dal PDF.";
+    const noticeLines = wrapLines(notice, contentWidth - 24, regularFont, 8.5);
+    const noticeHeight = 18 + noticeLines.length * 10;
+    ensureSpace(noticeHeight + 14, "Condizioni contrattuali complete");
+    page.drawRectangle({
+      x: MARGIN_X,
+      y: cursorY - noticeHeight,
+      width: contentWidth,
+      height: noticeHeight,
+      color: hexToRgb("#f5f8ff")
+    });
+    page.drawRectangle({
+      x: MARGIN_X,
+      y: cursorY - noticeHeight,
+      width: 3,
+      height: noticeHeight,
+      color: hexToRgb(accentHex)
+    });
+    let noticeY = cursorY - 16;
+    for (const line of noticeLines) {
+      page.drawText(line, {
+        x: MARGIN_X + 12,
+        y: noticeY,
+        size: 8.5,
+        font: regularFont,
+        color: hexToRgb("#42577a")
+      });
+      noticeY -= 10;
+    }
+    cursorY -= noticeHeight + 16;
+
+    const sourceLines = normalizeMultiline(input.contract.content).split("\n");
+    let skippedDocumentTitle = false;
+    let renderedText = false;
+
+    for (const sourceLine of sourceLines) {
+      const line = sourceLine.trim();
+      if (isTemplateSignaturePlaceholder(line)) continue;
+
+      if (!line) {
+        cursorY -= 5;
+        continue;
+      }
+
+      if (!skippedDocumentTitle && /contratto\s+di\s+noleggio/i.test(line)) {
+        skippedDocumentTitle = true;
+        continue;
+      }
+
+      const heading = /^\d+(?:\.\d+)*[.)]?\s+[A-ZÀ-ÖØ-Ý]/.test(line) && line.length <= 120;
+      const bullet = /^[-*•]\s+/.test(line);
+      const cleanLine = bullet ? line.replace(/^[-*•]\s+/, "") : line;
+
+      if (heading) {
+        const headingLines = wrapLines(cleanLine, contentWidth - 18, boldFont, 10.2);
+        const headingHeight = 13 + headingLines.length * 12;
+        ensureSpace(headingHeight + 8, "Condizioni contrattuali - continua");
+        page.drawRectangle({
+          x: MARGIN_X,
+          y: cursorY - headingHeight + 5,
+          width: 3,
+          height: headingHeight - 5,
+          color: hexToRgb(accentHex)
+        });
+        let headingY = cursorY - 8;
+        for (const wrapped of headingLines) {
+          page.drawText(wrapped, {
+            x: MARGIN_X + 12,
+            y: headingY,
+            size: 10.2,
+            font: boldFont,
+            color: hexToRgb(primaryHex)
+          });
+          headingY -= 12;
+        }
+        cursorY -= headingHeight + 5;
+        renderedText = true;
+        continue;
+      }
+
+      const paragraphX = MARGIN_X + (bullet ? 14 : 0);
+      const paragraphWidth = contentWidth - (bullet ? 14 : 0);
+      const paragraphLines = wrapLines(cleanLine, paragraphWidth, regularFont, 9.1);
+      let firstLine = true;
+      for (const wrapped of paragraphLines) {
+        ensureSpace(13, "Condizioni contrattuali - continua");
+        if (bullet && firstLine) {
+          page.drawText("-", {
+            x: MARGIN_X + 2,
+            y: cursorY,
+            size: 9.1,
+            font: boldFont,
+            color: hexToRgb(accentHex)
+          });
+        }
+        page.drawText(wrapped, {
+          x: paragraphX,
+          y: cursorY,
+          size: 9.1,
+          font: regularFont,
+          color: hexToRgb("#263a5c")
+        });
+        cursorY -= 12.2;
+        firstLine = false;
+      }
+      cursorY -= 4;
+      renderedText = true;
+    }
+
+    if (!renderedText) {
+      ensureSpace(24, "Condizioni contrattuali complete");
+      page.drawText("Testo contrattuale non disponibile.", {
+        x: MARGIN_X,
+        y: cursorY,
+        size: 9.2,
+        font: regularFont,
+        color: hexToRgb("#6b7890")
+      });
+      cursorY -= 24;
+    }
+  };
+
   const drawSignatures = () => {
     drawSectionTitle("Sottoscrizione");
     const signedAt = input.contract.signedAt ?? input.booking.contractSignedAt;
-    const signedDateLabel = formatDate(signedAt ?? new Date());
+    const signedDateLabel = signedAt ? formatDate(signedAt) : "Da completare";
     const signedPlaceLabel = asText(input.booking.returnLocation, input.booking.pickupLocation);
     const statement = signedAt
       ? `Firma registrata il ${formatDateTime(signedAt)}.`
-      : "Con la firma il cliente dichiara di aver letto e accettato tutte le condizioni contrattuali.";
+      : "Firma cliente da acquisire.";
     const statementLines = wrapLines(statement, contentWidth, regularFont, 9);
     for (const line of statementLines) {
       ensureSpace(12, "Sottoscrizione");
@@ -1273,49 +1421,8 @@ export const buildEnterpriseContractPdf = async (input: EnterpriseContractPdfInp
     ["Totale finale", "Valore consuntivo se disponibile", formatMoney(snapshot?.finalTotal ?? input.booking.finalTotal), true]
   ]);
 
-  createContentPage("Condizioni, responsabilita e firme");
-  page.drawText("CONDIZIONI, RESPONSABILITA E FIRME", {
-    x: MARGIN_X,
-    y: PAGE_H - 66,
-    size: 17,
-    font: boldFont,
-    color: hexToRgb(primaryHex)
-  });
-  page.drawText("Sintesi operativa delle condizioni principali. Il template puo essere personalizzato dalla societa di noleggio.", {
-    x: MARGIN_X,
-    y: PAGE_H - 84,
-    size: 8.8,
-    font: regularFont,
-    color: hexToRgb("#66758d")
-  });
-  cursorY = PAGE_H - 120;
-  drawPremiumClauses([
-    [
-      "1. Uso del veicolo",
-      "Il Cliente utilizza il veicolo con diligenza, nel rispetto del Codice della Strada, delle condizioni del Locatore e dei limiti assicurativi."
-    ],
-    [
-      "2. Danni, sinistri e furto",
-      "Ogni danno, sinistro, furto o evento rilevante deve essere comunicato tempestivamente alla societa di noleggio e documentato secondo procedura."
-    ],
-    [
-      "3. Multe, pedaggi e oneri",
-      "Multe, pedaggi, ZTL, parcheggi e ogni onere generato durante il periodo di noleggio restano a carico del Cliente o conducente."
-    ],
-    [
-      "4. Ritardo riconsegna",
-      "La riconsegna oltre l'orario previsto puo comportare addebiti aggiuntivi secondo listino e regole di tolleranza indicate."
-    ],
-    [
-      "5. Privacy e trattamento dati",
-      "I dati sono trattati per gestione contrattuale, amministrativa, sicurezza, tutela dei diritti e obblighi normativi."
-    ],
-    [
-      "6. Firma elettronica",
-      "La firma acquisita digitalmente viene associata al contratto con timestamp e riferimento tecnico interno, ove disponibile."
-    ]
-  ]);
-  drawPremiumDeliverySummary();
+  createContentPage("Condizioni contrattuali complete");
+  drawVersionedContractContent();
   drawSignatures();
 
   const totalPages = pages.length;
