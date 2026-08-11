@@ -375,6 +375,7 @@ export const CompanyProfilePage = ({ onboarding = false, nextPath }: CompanyProf
   return (
     <section className="space-y-4">
       <PageHeader
+        eyebrow={onboarding ? "Configurazione iniziale" : "Azienda"}
         title={onboarding ? "Completa dati azienda" : "Profilo Azienda"}
         subtitle={
           onboarding

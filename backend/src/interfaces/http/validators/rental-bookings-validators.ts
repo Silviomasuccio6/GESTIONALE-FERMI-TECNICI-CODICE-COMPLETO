@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasMinimumRentalDuration } from "../../../shared/validation/rental-booking-duration.js";
 
 const optionalString = z.preprocess((value) => (value === "" ? undefined : value), z.string().optional());
 
@@ -54,8 +55,8 @@ export const rentalBookingCreateSchema = rentalBookingBaseSchema
   .extend({
     generateContract: z.boolean().optional().default(true)
   })
-  .refine((input) => input.returnAt.getTime() > input.pickupAt.getTime(), {
-    message: "La data/ora di rientro deve essere successiva al ritiro",
+  .refine((input) => hasMinimumRentalDuration(input.pickupAt, input.returnAt), {
+    message: "La durata minima del noleggio e di 24 ore",
     path: ["returnAt"]
   })
   .refine((input) => {
@@ -68,9 +69,9 @@ export const rentalBookingCreateSchema = rentalBookingBaseSchema
 
 export const rentalBookingUpdateSchema = rentalBookingBaseSchema.partial().refine((input) => {
   if (!input.pickupAt || !input.returnAt) return true;
-  return input.returnAt.getTime() > input.pickupAt.getTime();
+  return hasMinimumRentalDuration(input.pickupAt, input.returnAt);
 }, {
-    message: "La data/ora di rientro deve essere successiva al ritiro",
+    message: "La durata minima del noleggio e di 24 ore",
     path: ["returnAt"]
   }).refine((input) => {
     if (input.pickupKm == null || input.returnKm == null) return true;
@@ -242,8 +243,8 @@ export const rentalPricingQuoteSchema = z
     estimatedKm: z.coerce.number().min(0).optional().nullable(),
     actualKm: z.coerce.number().min(0).optional().nullable()
   })
-  .refine((input) => input.returnAt.getTime() > input.pickupAt.getTime(), {
-    message: "La data/ora di rientro deve essere successiva al ritiro",
+  .refine((input) => hasMinimumRentalDuration(input.pickupAt, input.returnAt), {
+    message: "La durata minima del noleggio e di 24 ore",
     path: ["returnAt"]
   });
 

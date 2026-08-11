@@ -3,24 +3,24 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../../lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] active:opacity-100 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-100 disabled:saturate-75 disabled:brightness-95",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:translate-y-px disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55",
   {
     variants: {
       variant: {
         default:
-          "bg-gradient-to-r from-primary via-blue-600 to-indigo-500 text-primary-foreground shadow-[0_14px_32px_-18px_rgba(37,99,235,0.75)] hover:-translate-y-0.5 hover:from-blue-600 hover:to-indigo-500 hover:shadow-[0_20px_38px_-18px_rgba(37,99,235,0.82)]",
+          "border border-primary bg-primary text-primary-foreground shadow-[0_8px_18px_-12px_rgba(37,99,235,0.65)] hover:bg-primary/92 hover:shadow-[0_10px_22px_-13px_rgba(37,99,235,0.7)]",
         secondary:
-          "bg-gradient-to-r from-secondary to-secondary/85 text-secondary-foreground shadow-[0_10px_24px_-18px_rgba(15,23,42,0.4)] hover:bg-secondary",
+          "border border-border bg-secondary text-secondary-foreground hover:bg-secondary/75",
         outline:
-          "border border-input bg-gradient-to-b from-card to-card/90 text-foreground shadow-[0_10px_24px_-20px_rgba(15,23,42,0.45)] hover:bg-muted/85",
-        ghost: "bg-transparent text-foreground hover:bg-muted/70",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          "border border-input bg-card text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-primary/30 hover:bg-muted/55",
+        ghost: "border border-transparent bg-transparent text-foreground hover:bg-muted/60",
+        destructive: "border border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-11 rounded-xl px-6",
-        icon: "h-10 w-10"
+        default: "h-9 px-4 py-2",
+        sm: "h-8 px-3 text-xs",
+        lg: "h-10 px-5",
+        icon: "h-9 w-9"
       }
     },
     defaultVariants: {

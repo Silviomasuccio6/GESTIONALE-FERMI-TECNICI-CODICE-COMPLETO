@@ -9,6 +9,7 @@ import { validateUploadedFile } from "../../../infrastructure/storage/file-secur
 import { storageProvider } from "../../../infrastructure/storage/storage-provider.js";
 import { AppError } from "../../../shared/errors/app-error.js";
 import { env } from "../../../shared/config/env.js";
+import { assertMinimumRentalDuration } from "../../../shared/validation/rental-booking-duration.js";
 import {
   buildContractTemplateMap,
   buildSimplePdfBuffer,
@@ -3434,6 +3435,7 @@ export class RentalBookingsController {
     const tenantId = req.auth!.tenantId;
     const userId = req.auth?.userId;
     const payload = rentalBookingCreateSchema.parse(req.body);
+    assertMinimumRentalDuration(payload.pickupAt, payload.returnAt);
 
     const [vehicle, customer] = await Promise.all([
       prisma.vehicle.findFirst({
@@ -3531,9 +3533,7 @@ export class RentalBookingsController {
     if (!nextCustomerId) throw new AppError("Cliente obbligatorio", 400, "CUSTOMER_REQUIRED");
     const nextCustomer = await this.getCustomerOrThrow(tenantId, nextCustomerId);
 
-    if (nextReturnAt.getTime() <= nextPickupAt.getTime()) {
-      throw new AppError("La data/ora di rientro deve essere successiva al ritiro", 400, "BOOKING_DATE_RANGE_INVALID");
-    }
+    assertMinimumRentalDuration(nextPickupAt, nextReturnAt);
     if (typeof nextPickupKm === "number" && typeof nextReturnKm === "number" && nextReturnKm < nextPickupKm) {
       throw new AppError("I km rientro devono essere maggiori o uguali ai km uscita.", 400, "BOOKING_KM_RANGE_INVALID");
     }

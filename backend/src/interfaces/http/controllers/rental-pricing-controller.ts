@@ -14,6 +14,7 @@ import {
   rentalPricingUpdatePackageSchema
 } from "../validators/rental-bookings-validators.js";
 import { AppError } from "../../../shared/errors/app-error.js";
+import { assertMinimumRentalDuration } from "../../../shared/validation/rental-booking-duration.js";
 
 const withDefined = <T extends Record<string, unknown>>(input: T): Partial<T> =>
   Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)) as Partial<T>;
@@ -586,6 +587,7 @@ export class RentalPricingController {
   previewQuote = async (req: Request, res: Response) => {
     const tenantId = req.auth!.tenantId;
     const payload = rentalPricingQuoteSchema.parse(req.body);
+    assertMinimumRentalDuration(payload.pickupAt, payload.returnAt);
 
     const setup = await this.getQuoteSetupOrThrow({
       tenantId,
@@ -625,6 +627,7 @@ export class RentalPricingController {
   finalizeQuote = async (req: Request, res: Response) => {
     const tenantId = req.auth!.tenantId;
     const payload = rentalPricingQuoteSchema.parse(req.body);
+    assertMinimumRentalDuration(payload.pickupAt, payload.returnAt);
 
     const setup = await this.getQuoteSetupOrThrow({
       tenantId,

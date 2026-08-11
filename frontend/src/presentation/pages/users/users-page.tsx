@@ -133,8 +133,9 @@ export const UsersPage = () => {
   return (
     <section className="space-y-4">
       <PageHeader
+        eyebrow="Organizzazione"
         title="Utenti e Ruoli"
-        subtitle="Gestione completa degli utenti interni: creazione, invito, ruolo, stato e disattivazione."
+        subtitle="Invita il team e governa ruoli, stato e accesso alle funzioni del gestionale."
       />
 
       <Card className="shadow-sm">

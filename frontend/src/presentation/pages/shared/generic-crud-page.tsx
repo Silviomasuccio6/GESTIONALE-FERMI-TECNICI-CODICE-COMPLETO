@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Inbox, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { FleetumInlineLoader } from "../../components/brand/fleetum-logo-loader";
 import { PageHeader } from "../../components/layout/page-header";
 import { Button } from "../../components/ui/button";
@@ -131,6 +131,7 @@ export const GenericCrudPage = ({
   };
 
   const onDelete = async (id: string) => {
+    if (!window.confirm("Vuoi eliminare definitivamente questo record?")) return;
     setError(null);
     try {
       await remove(id);
@@ -143,10 +144,11 @@ export const GenericCrudPage = ({
   const editingRow = editingId ? rows.find((x) => x.id === editingId) : null;
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <PageHeader
+        eyebrow="Anagrafiche"
         title={title}
-        subtitle="Gestione anagrafica con inserimento rapido, ricerca e cancellazione record."
+        subtitle="Consulta, cerca e aggiorna i dati operativi da un unico spazio ordinato."
         actions={
           <Button
             onClick={() => {
@@ -154,26 +156,61 @@ export const GenericCrudPage = ({
               setPanelOpen(true);
             }}
           >
+            <Plus className="h-4 w-4" />
             {createLabel}
           </Button>
         }
       />
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <div role="alert" className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
 
-      <Card className="saas-surface shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Elenco</CardTitle>
+      <Card className="saas-surface overflow-hidden">
+        <CardHeader className="flex-row items-center justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <CardTitle className="text-sm font-semibold">Elenco {title.toLowerCase()}</CardTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">{total} {total === 1 ? "record" : "record"} disponibili</p>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <Input placeholder="Ricerca..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+        <CardContent className="space-y-3 p-4">
+          <div className="relative max-w-md">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label={`Cerca in ${title}`}
+              className="pl-9"
+              placeholder={`Cerca in ${title.toLowerCase()}...`}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
 
           {loading ? <FleetumInlineLoader label="Caricamento in corso" /> : null}
 
-          <div className="space-y-3 md:hidden">
+          {!loading && rows.length === 0 ? (
+            <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 text-center">
+              <span className="mb-3 grid h-10 w-10 place-items-center rounded-lg border border-border bg-card text-muted-foreground">
+                <Inbox className="h-5 w-5" />
+              </span>
+              <p className="text-sm font-semibold text-foreground">{searchQuery ? "Nessun risultato trovato" : "Nessun record presente"}</p>
+              <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                {searchQuery ? "Prova con un termine diverso o cancella la ricerca." : `Crea il primo record per iniziare a gestire ${title.toLowerCase()}.`}
+              </p>
+              {!searchQuery ? (
+                <Button className="mt-4" size="sm" onClick={() => setPanelOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  {createLabel}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="space-y-2 md:hidden">
             {rows.map((row) => (
-              <Card key={row.id} className="border-dashed">
-                <CardContent className="space-y-2 pt-4">
+              <Card key={row.id} className="shadow-none">
+                <CardContent className="space-y-2 p-4">
                   {fields.map((f) => (
                     <p key={f.key} className="text-sm">
                       <span className="text-muted-foreground">{f.label}: </span>
@@ -189,9 +226,11 @@ export const GenericCrudPage = ({
                         setPanelOpen(true);
                       }}
                     >
+                      <Pencil className="h-3.5 w-3.5" />
                       Modifica
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => void onDelete(row.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
                       Elimina
                     </Button>
                   </div>
@@ -200,7 +239,7 @@ export const GenericCrudPage = ({
             ))}
           </div>
 
-          <div className="hidden md:block">
+          <div className={rows.length ? "hidden md:block" : "hidden"}>
             <Table className="text-[12px]">
               <TableHeader>
                 <TableRow>
@@ -227,9 +266,11 @@ export const GenericCrudPage = ({
                             setPanelOpen(true);
                           }}
                         >
+                          <Pencil className="h-3.5 w-3.5" />
                           Modifica
                         </Button>
                         <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => void onDelete(row.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
                           Elimina
                         </Button>
                       </div>
@@ -240,7 +281,7 @@ export const GenericCrudPage = ({
             </Table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs">
             <p className="text-muted-foreground">
               Pagina <span className="font-medium text-foreground">{page}</span> di <span className="font-medium text-foreground">{totalPages}</span> · Totale record: <span className="font-medium text-foreground">{total}</span>
             </p>
@@ -251,6 +292,7 @@ export const GenericCrudPage = ({
                 disabled={page <= 1 || loading}
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
               >
+                <ChevronLeft className="h-3.5 w-3.5" />
                 Precedente
               </Button>
               <Button
@@ -260,6 +302,7 @@ export const GenericCrudPage = ({
                 onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               >
                 Successiva
+                <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
@@ -268,16 +311,19 @@ export const GenericCrudPage = ({
 
       {panelOpen ? (
         <>
-          <div className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-sm" onClick={() => setPanelOpen(false)} />
-          <aside className="fixed z-[80] right-0 top-0 h-full w-full max-w-xl border-l bg-card shadow-2xl max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[88vh] max-sm:rounded-t-2xl max-sm:border-t max-sm:border-l-0">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <p className="text-sm font-semibold">{editingId ? "Modifica record" : createTitleLabel ?? createLabel}</p>
-              <Button variant="outline" size="icon" onClick={() => setPanelOpen(false)}>
+          <div className="fixed inset-0 z-[70] bg-slate-950/35 backdrop-blur-[2px]" onClick={() => setPanelOpen(false)} />
+          <aside className="fixed right-0 top-0 z-[80] h-full w-full max-w-lg border-l bg-card shadow-[-20px_0_50px_-30px_rgba(15,23,42,0.35)] max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[90vh] max-sm:rounded-t-2xl max-sm:border-l-0 max-sm:border-t">
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <div>
+                <p className="text-sm font-semibold">{editingId ? "Modifica record" : createTitleLabel ?? createLabel}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Compila i campi e salva per aggiornare l'elenco.</p>
+              </div>
+              <Button aria-label="Chiudi pannello" variant="ghost" size="icon" onClick={() => setPanelOpen(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="h-[calc(100%-64px)] overflow-auto px-4 py-4">
-              <form className="grid gap-3 sm:grid-cols-2" onSubmit={editingId ? onUpdate : onCreate}>
+            <div className="h-[calc(100%-73px)] overflow-auto px-5 py-5">
+              <form className="grid gap-4 sm:grid-cols-2" onSubmit={editingId ? onUpdate : onCreate}>
                 {fields.map((field) => (
                   <div key={field.key} className="grid gap-1.5">
                     <Label>{field.label}</Label>
@@ -289,7 +335,7 @@ export const GenericCrudPage = ({
                     />
                   </div>
                 ))}
-                <div className="sm:col-span-2 flex gap-2">
+                <div className="sticky bottom-0 -mx-5 mt-3 flex gap-2 border-t bg-card/95 px-5 pb-1 pt-4 backdrop-blur sm:col-span-2">
                   <Button type="submit">{editingId ? "Salva modifiche" : `Crea ${createLabel.toLowerCase().replace(/^nuov[oa]\s+/i, "")}`}</Button>
                   <Button type="button" variant="outline" onClick={() => setPanelOpen(false)}>
                     Annulla

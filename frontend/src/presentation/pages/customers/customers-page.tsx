@@ -668,15 +668,16 @@ export const CustomersPage = () => {
   return (
     <section className="space-y-3">
       <PageHeader
+        eyebrow="Anagrafiche"
         title="Anagrafica Clienti"
-        subtitle="Gestione clienti centralizzata con storico noleggi e contratti in ordine cronologico."
+        subtitle="Dati personali e societari, documenti, noleggi e contratti in una scheda completa."
       />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
 
-      <Card className="saas-surface">
-        <CardContent className="space-y-3 py-4">
+      <Card className="saas-surface overflow-hidden">
+        <CardContent className="space-y-3 p-4">
           <div className="grid gap-2 md:grid-cols-[1fr_220px_auto]">
             <Input
               value={searchInput}
@@ -789,8 +790,8 @@ export const CustomersPage = () => {
 
       {selectedCustomerId ? (
         <>
-          <div className="fixed inset-0 z-[110] bg-black/55 backdrop-blur-sm" onClick={closePanel} />
-          <aside className="fixed right-0 top-0 z-[111] h-screen w-full max-w-[920px] overflow-y-auto border-l bg-background p-4 shadow-2xl">
+          <div className="fixed inset-0 z-[110] bg-slate-950/35 backdrop-blur-[2px]" onClick={closePanel} />
+          <aside className="fixed right-0 top-0 z-[111] h-screen w-full max-w-[920px] overflow-y-auto border-l bg-background p-4 shadow-[-20px_0_50px_-30px_rgba(15,23,42,0.35)]">
             <div className="sticky top-0 z-10 -mx-4 mb-3 border-b bg-background px-4 pb-3 pt-1">
               <div className="flex items-center justify-between">
                 <div>

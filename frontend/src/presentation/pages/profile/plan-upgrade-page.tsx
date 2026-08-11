@@ -325,66 +325,80 @@ export const PlanUpgradePage = ({ mode = "upgrade" }: { mode?: PlanUpgradeMode }
       </Card>
 
       {!isActivationMode ? (
-        <Card className="overflow-hidden border-indigo-200/80 bg-white/90 shadow-[0_24px_70px_-48px_rgba(30,64,175,0.55)] dark:border-indigo-500/25 dark:bg-slate-950/60">
-          <CardContent className="grid gap-4 p-5 lg:grid-cols-[1.3fr_0.9fr_0.9fr] lg:items-center">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Piano corrente</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <h3 className="text-2xl font-semibold text-foreground">{currentPlan ? planLabel(currentPlan) : "Piano non attivo"}</h3>
-                <span className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-semibold",
-                  licenseStatus === "ACTIVE" || licenseStatus === "TRIAL"
-                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"
-                    : "bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-100"
-                )}>
-                  {licenseStatusLabel(licenseStatus)}
-                </span>
+        <div className="grid gap-4">
+          <Card className="overflow-hidden border-indigo-200/80 bg-white/90 shadow-[0_24px_70px_-48px_rgba(30,64,175,0.55)] dark:border-indigo-500/25 dark:bg-slate-950/60">
+            <CardContent className="grid gap-4 p-5 lg:grid-cols-[1.35fr_0.8fr_auto] lg:items-center">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Piano corrente</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <h3 className="text-2xl font-semibold text-foreground">{currentPlan ? planLabel(currentPlan) : "Piano non attivo"}</h3>
+                  <span className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-semibold",
+                    licenseStatus === "ACTIVE" || licenseStatus === "TRIAL"
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"
+                      : "bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-100"
+                  )}>
+                    {licenseStatusLabel(licenseStatus)}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {hasManagedStripeSubscription
+                    ? "Abbonamento, rinnovi e fatture sono sincronizzati con Stripe."
+                    : "Se il piano non e' collegato a Stripe, la modifica va completata con checkout o assistenza Fleetum."}
+                </p>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {hasManagedStripeSubscription
-                  ? "La subscription e' gestita da Stripe. Upgrade, fatture e carta passano dal portale sicuro."
-                  : "Se il piano non e' collegato a Stripe, la modifica va completata con checkout o assistenza Fleetum."}
-              </p>
-            </div>
 
-            <div className="rounded-2xl border border-border/70 bg-muted/25 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Fatturazione</p>
-              <p className="mt-1 text-lg font-semibold text-foreground">{billingCycleLabel(activeBillingCycle)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {expiresAt
-                  ? `${licenseStatus === "TRIAL" ? "Fine trial" : "Prossimo rinnovo"}: ${formatDate(expiresAt)}${daysRemaining !== null ? ` (${daysRemaining} giorni)` : ""}`
-                  : "Scadenza non disponibile"}
-              </p>
-            </div>
+              <div className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Fatturazione</p>
+                <p className="mt-1 text-lg font-semibold text-foreground">{billingCycleLabel(activeBillingCycle)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {expiresAt
+                    ? `${licenseStatus === "TRIAL" ? "Fine trial" : "Prossimo rinnovo"}: ${formatDate(expiresAt)}${daysRemaining !== null ? ` (${daysRemaining} giorni)` : ""}`
+                    : "Scadenza non disponibile"}
+                </p>
+              </div>
 
-            <div className="flex flex-col gap-2">
               <Button
                 type="button"
-                className="w-full"
+                variant="outline"
                 disabled={!canManageBilling || !hasManagedStripeSubscription || busyPortal}
                 onClick={() => void openCustomerPortalSession()}
               >
                 <ExternalLink className="h-4 w-4" />
-                {busyPortal ? "Apertura Stripe..." : "Apri portale Stripe"}
+                {busyPortal ? "Apertura Stripe..." : "Gestisci abbonamento"}
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-slate-200/90 bg-white/95 shadow-[0_20px_55px_-44px_rgba(15,23,42,0.6)] dark:border-white/10 dark:bg-slate-950/70">
+            <CardContent className="grid gap-4 p-5 sm:grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-500/25 dark:bg-blue-500/10 dark:text-blue-200" aria-hidden="true">
+                <CreditCard className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Metodo di pagamento</p>
+                <h3 className="mt-1 text-lg font-semibold text-foreground">Carta predefinita gestita in sicurezza da Stripe</h3>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Puoi sostituire la carta usata per trial e rinnovi. Quella attuale resta valida finche Stripe non conferma il nuovo metodo.
+                </p>
+              </div>
               <Button
                 type="button"
-                variant="outline"
-                className="w-full"
+                className="sm:col-span-2 lg:col-span-1"
                 disabled={!canManageBilling || !hasManagedStripeSubscription || busyPaymentMethod}
                 onClick={() => void openPaymentMethodSession()}
               >
                 <CreditCard className="h-4 w-4" />
-                {busyPaymentMethod ? "Apertura Stripe..." : "Sostituisci carta"}
+                {busyPaymentMethod ? "Apertura Stripe..." : "Modifica metodo di pagamento"}
               </Button>
-            </div>
-            {billingActionsUnavailableReason ? (
-              <p className="lg:col-span-3 text-xs font-medium text-muted-foreground" role="status">
-                {billingActionsUnavailableReason}
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
+              {billingActionsUnavailableReason ? (
+                <p className="sm:col-span-2 lg:col-span-3 text-xs font-medium text-muted-foreground" role="status">
+                  {billingActionsUnavailableReason}
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
       ) : null}
 
       {welcomeStatus === "billing" ? (

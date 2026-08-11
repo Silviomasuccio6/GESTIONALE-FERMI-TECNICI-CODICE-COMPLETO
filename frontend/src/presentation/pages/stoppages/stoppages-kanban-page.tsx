@@ -39,6 +39,7 @@ export const StoppagesKanbanPage = () => {
   return (
     <section className="space-y-4">
       <PageHeader
+        eyebrow="Workflow operativo"
         title="Kanban Fermi"
         subtitle="Sposta i fermi tra gli stati con drag and drop per un aggiornamento operativo rapido."
       />
@@ -50,16 +51,19 @@ export const StoppagesKanbanPage = () => {
           return (
             <Card
               key={column.key}
-              className={isEmpty ? "min-h-[220px]" : "min-h-[360px]"}
+              className={`${isEmpty ? "min-h-[220px]" : "min-h-[360px]"} bg-muted/15 shadow-none`}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => onDropToColumn(column.key)}
             >
-              <CardHeader className="pb-2">
+              <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-border/60 pb-3">
                 <CardTitle className="text-sm">{column.label}</CardTitle>
+                <span className="rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  {items.length}
+                </span>
               </CardHeader>
               <CardContent className="space-y-2">
                 {isEmpty ? (
-                  <div className="grid min-h-[120px] place-items-center rounded-md border border-dashed border-border/80 bg-muted/25 px-3 text-center">
+                  <div className="grid min-h-[120px] place-items-center rounded-lg border border-dashed border-border/80 bg-background/70 px-3 text-center">
                     <p className="text-xs text-muted-foreground">Nessun fermo in questo stato</p>
                   </div>
                 ) : null}
@@ -69,7 +73,7 @@ export const StoppagesKanbanPage = () => {
                     key={item.id}
                     draggable
                     onDragStart={() => setDraggedId(item.id)}
-                    className="cursor-grab rounded-md border bg-muted/40 p-3 text-sm"
+                    className="cursor-grab rounded-lg border border-border/70 bg-background p-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-primary/30 hover:bg-primary/[0.025]"
                   >
                     <p className="font-semibold">{item.vehicle?.plate}</p>
                     <p>{item.vehicle?.brand} {item.vehicle?.model}</p>

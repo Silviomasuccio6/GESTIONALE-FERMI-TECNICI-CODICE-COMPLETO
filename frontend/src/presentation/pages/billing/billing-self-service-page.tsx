@@ -21,24 +21,24 @@ export const BillingSelfServicePage = () => {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,0.14),transparent_34%),linear-gradient(135deg,#f8fbff_0%,#eef4ff_45%,#f8fafc_100%)] px-4 py-6 text-slate-950 dark:bg-slate-950 dark:text-white md:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 pb-6">
+    <main className="min-h-screen overflow-hidden bg-[#f5f7fb] px-4 py-6 text-slate-950 dark:bg-slate-950 dark:text-white md:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 pb-5">
         <Link
           to="/dashboard"
           aria-label="Torna alla dashboard del gestionale"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-sm font-bold shadow-[0_20px_45px_-32px_rgba(15,23,42,0.45)] backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-slate-950/70 dark:hover:bg-slate-950"
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Torna al gestionale
         </Link>
         <div className="flex items-center gap-2">
-          <span className="hidden rounded-full border border-indigo-200 bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-indigo-700 shadow-sm md:inline-flex dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100">
+          <span className="hidden rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-blue-700 md:inline-flex dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100">
             Billing sicuro Stripe
           </span>
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl rounded-[2rem] border border-white/70 bg-white/80 p-4 shadow-[0_30px_80px_-45px_rgba(15,23,42,0.55)] backdrop-blur dark:border-white/10 dark:bg-slate-950/65 md:p-6">
+      <div className="mx-auto max-w-7xl rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 md:p-6">
         <PlanUpgradePage mode="upgrade" />
       </div>
     </main>

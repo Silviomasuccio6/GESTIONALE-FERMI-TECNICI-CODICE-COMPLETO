@@ -17,6 +17,7 @@ import { statsUseCases } from "../../../application/usecases/stats-usecases";
 import { stoppageStatusLabel } from "../../../domain/constants/stoppage-status";
 import { cn } from "../../../lib/utils";
 import { CardStat } from "../../components/common/table";
+import { PageHeader } from "../../components/layout/page-header";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -421,6 +422,11 @@ export const StatsPage = () => {
   return (
     <section className="relative space-y-4">
       <div className="space-y-4">
+        <PageHeader
+          eyebrow="Performance"
+          title="Statistiche e redditività"
+          subtitle="Ricavi, utilizzo, costi e continuità operativa della flotta in un unico quadro decisionale."
+        />
         <div className="sticky top-16 z-20 flex justify-end">
           <div className="relative">
             <Button variant="outline" className="h-8" onClick={() => setFiltersOpen((old) => !old)}>
@@ -429,7 +435,7 @@ export const StatsPage = () => {
               {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
             {filtersOpen ? (
-            <div className="absolute right-0 top-10 z-30 w-[min(1120px,calc(100vw-2rem))] rounded-2xl border border-border/80 bg-card/98 p-4 shadow-lg backdrop-blur">
+            <div className="absolute right-0 top-10 z-30 w-[min(1120px,calc(100vw-2rem))] rounded-xl border border-border/80 bg-card/98 p-4 shadow-lg backdrop-blur">
               <div className="space-y-3">
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
               <div className="grid gap-1.5">
@@ -560,7 +566,7 @@ export const StatsPage = () => {
           </div>
         </div>
 
-        <Card className="saas-surface border-blue-500/20 bg-gradient-to-br from-white to-blue-50/45 shadow-sm dark:from-slate-950 dark:to-blue-950/25">
+        <Card className="saas-surface border-blue-500/20">
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -595,7 +601,7 @@ export const StatsPage = () => {
                   ))}
                 </Select>
               </div>
-              <div className="rounded-2xl border bg-card px-4 py-3 text-xs text-muted-foreground">
+              <div className="rounded-lg border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
                 Base dato: booking, contratti e pricing snapshot. ROI indicativo se il prezzo acquisto e i costi sono configurati.
               </div>
             </div>
@@ -626,7 +632,7 @@ export const StatsPage = () => {
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-                  <div className="h-[280px] rounded-2xl border bg-card p-3">
+                  <div className="h-[280px] rounded-xl border bg-card p-3">
                     {profitability.data.trend?.length ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={profitability.data.trend}>

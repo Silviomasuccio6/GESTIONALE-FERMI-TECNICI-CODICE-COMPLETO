@@ -72,6 +72,7 @@ const TRANSLATIONS_IT_EN: Record<string, string> = {
   "Crea un altro tenant": "Create another tenant",
   "Dashboard": "Dashboard",
   "Booking Noleggi": "Rental Booking",
+  "Prenotazioni": "Bookings",
   "Contratti Noleggio": "Rental Contracts",
   "Listini Noleggi": "Rental Price Lists",
   "Calendario Fermi": "Downtime Calendar",

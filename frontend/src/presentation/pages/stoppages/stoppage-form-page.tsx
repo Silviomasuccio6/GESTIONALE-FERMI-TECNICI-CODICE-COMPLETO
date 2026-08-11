@@ -339,10 +339,11 @@ export const StoppageFormPage = () => {
   return (
     <section className="space-y-4">
       <PageHeader
+        eyebrow="Fermi tecnici"
         title={id ? "Modifica fermo" : "Nuovo fermo"}
         subtitle="Compila i dati operativi, imposta priorità e reminder, allega il contesto del fermo."
       />
-      <Card className="shadow-sm">
+      <Card className="saas-surface shadow-none">
         <CardHeader>
           <CardTitle className="text-base">Dati fermo</CardTitle>
         </CardHeader>

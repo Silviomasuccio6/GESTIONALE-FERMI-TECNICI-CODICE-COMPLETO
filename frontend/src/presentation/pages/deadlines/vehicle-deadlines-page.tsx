@@ -148,8 +148,9 @@ export const VehicleDeadlinesPage = () => {
   return (
     <section className="space-y-3">
       <PageHeader
+        eyebrow="Scadenze"
         title="Scadenziario Veicoli"
-        subtitle="Alert su manutenzione chilometrica e revisione con sincronizzazione task nel calendario."
+        subtitle="Controlla revisioni e manutenzioni imminenti prima che diventino blocchi operativi."
         actions={
           <Button onClick={() => void onSyncAll()} disabled={syncingAll || loading}>
             <CalendarPlus className="h-4 w-4" />

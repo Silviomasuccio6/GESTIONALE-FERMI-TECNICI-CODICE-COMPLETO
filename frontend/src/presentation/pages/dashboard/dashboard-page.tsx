@@ -1,739 +1,536 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, CalendarDays, Car, ChevronLeft, ChevronRight, Gauge, ShieldCheck, Wrench } from "lucide-react";
-import { Area, AreaChart, Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { stoppagesUseCases } from "../../../application/usecases/stoppages-usecases";
+import {
+  AlertTriangle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  CalendarDays,
+  Car,
+  CircleDollarSign,
+  CircleCheck,
+  Clock3,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  MapPin,
+  MoreVertical,
+  Wrench
+} from "lucide-react";
+import { RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
+import { rentalBookingsUseCases, type RentalBookingStatus } from "../../../application/usecases/rental-bookings-usecases";
 import { statsUseCases } from "../../../application/usecases/stats-usecases";
-import { stoppageStatusLabel } from "../../../domain/constants/stoppage-status";
 import { FleetumBlockLoader } from "../../components/brand/fleetum-logo-loader";
-import { CardStat } from "../../components/common/table";
-import { PageHeader } from "../../components/layout/page-header";
 import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { useAsync } from "../../hooks/use-async";
-import { useEntitlements } from "../../hooks/use-entitlements";
 
-type TrendRange = "7d" | "15d" | "30d";
-
-const rangeOptions: Array<{ value: TrendRange; label: string; days: number }> = [
-  { value: "7d", label: "7gg", days: 7 },
-  { value: "15d", label: "15gg", days: 15 },
-  { value: "30d", label: "30gg", days: 30 }
-];
-
-const trendViews = [
-  {
-    title: "Aperture vs Chiusure",
-    subtitle: "Confronto giornaliero tra nuovi fermi aperti e chiusi."
-  },
-  {
-    title: "Reminder Inviati",
-    subtitle: "Volume reminder inviati nel range selezionato."
-  },
-  {
-    title: "Saldo Aperture-Chiusure",
-    subtitle: "Differenza operativa giornaliera tra aperture e chiusure."
-  }
-] as const;
-
-const chartAxisTick = {
-  fill: "rgba(13,15,46,0.55)",
-  fontSize: 11,
-  fontFamily: "JetBrains Mono, monospace"
+type DashboardBooking = {
+  id: string;
+  code: string;
+  customerName: string;
+  pickupAt: string;
+  returnAt: string;
+  status: RentalBookingStatus;
+  contractStatus: string;
 };
 
-const chartTooltipStyle = {
-  background: "rgba(255,255,255,0.96)",
-  border: "1px solid rgba(99,102,241,0.2)",
-  borderRadius: 12,
-  boxShadow: "0 10px 30px rgba(99,102,241,0.16)",
-  color: "#0D0F2E"
+type DashboardVehicleRow = {
+  id: string;
+  isAvailable: boolean;
+  vehicle: {
+    plate: string;
+    brand: string;
+    model: string;
+    siteName: string;
+  };
+  bookings: DashboardBooking[];
+};
+
+type PriorityItem = {
+  id: string;
+  title: string;
+  description: string;
+  tone: "danger" | "warning" | "info";
+  route: string;
+};
+
+const timelineStartMinutes = 0;
+const timelineEndMinutes = 24 * 60;
+const timelineSpanMinutes = timelineEndMinutes - timelineStartMinutes;
+const timelineHours = Array.from({ length: 7 }, (_, index) => index * 4);
+const timelineGridHours = Array.from({ length: 13 }, (_, index) => index * 2);
+
+const toLocalIsoDay = (value: Date) => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const formatCurrency = (value?: number | string | null) => {
   const parsed = typeof value === "number" ? value : Number(value ?? NaN);
   if (!Number.isFinite(parsed)) return "-";
-  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(parsed);
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0
+  }).format(parsed);
 };
 
-const getRangeBounds = (range: TrendRange) => {
-  const today = new Date();
-  const end = new Date(today);
-  end.setHours(23, 59, 59, 999);
+const timeLabel = (value: string) =>
+  new Date(value).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
-  const start = new Date(today);
-  const days = rangeOptions.find((entry) => entry.value === range)?.days ?? 30;
-  start.setDate(start.getDate() - (days - 1));
-  start.setHours(0, 0, 0, 0);
+const localDayStart = (value: Date) =>
+  new Date(value.getFullYear(), value.getMonth(), value.getDate(), 0, 0, 0, 0);
 
-  return { start, end };
+const isSameLocalDay = (first: Date, second: Date) =>
+  first.getFullYear() === second.getFullYear() &&
+  first.getMonth() === second.getMonth() &&
+  first.getDate() === second.getDate();
+
+const relativeDateTimeLabel = (value: string, reference: Date) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "data non disponibile";
+  if (isSameLocalDay(date, reference)) return `oggi ${timeLabel(value)}`;
+
+  const tomorrow = new Date(reference);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (isSameLocalDay(date, tomorrow)) return `domani ${timeLabel(value)}`;
+
+  return date.toLocaleString("it-IT", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 };
 
-const compactNumber = (value?: number | string | null, suffix = "") => {
-  const parsed = typeof value === "number" ? value : Number(value ?? NaN);
-  if (!Number.isFinite(parsed)) return "-";
-  return `${new Intl.NumberFormat("it-IT", { maximumFractionDigits: 1 }).format(parsed)}${suffix}`;
+const minutesInDay = (value: string) => {
+  const date = new Date(value);
+  return date.getHours() * 60 + date.getMinutes();
 };
 
-const formatDateTime = (value?: string | Date | null) => {
-  if (!value) return "-";
-  const parsed = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const positionForMinutes = (minutes: number) =>
+  ((clamp(minutes, timelineStartMinutes, timelineEndMinutes) - timelineStartMinutes) / timelineSpanMinutes) * 100;
+
+const statusMeta = (status: RentalBookingStatus) => {
+  if (status === "IN_RENT") return { label: "In corso", tone: "active" as const };
+  if (["CONTRACT_SIGNED", "READY_FOR_HANDOVER"].includes(status)) {
+    return { label: status === "READY_FOR_HANDOVER" ? "Consegna pronta" : "Firmato", tone: "ready" as const };
+  }
+  if (status === "CONFIRMED") return { label: "Confermato", tone: "confirmed" as const };
+  if (["DRAFT", "QUOTED", "HOLD"].includes(status)) return { label: "Da confermare", tone: "pending" as const };
+  return { label: status === "CLOSED" ? "Chiuso" : status.split("_").join(" "), tone: "neutral" as const };
 };
 
-const statusBadgeVariant = (status?: string) => {
-  if (["SIGNED", "CLOSED", "SENT", "READY"].includes(status ?? "")) return "success" as const;
-  if (["ERROR", "FAILED", "CANCELED"].includes(status ?? "")) return "destructive" as const;
-  if (["DRAFT", "NOT_READY", "HOLD"].includes(status ?? "")) return "warning" as const;
-  return "secondary" as const;
+const vehicleAvailabilityMeta = (row: DashboardVehicleRow, now: Date) => {
+  const nowMs = now.getTime();
+  const current = row.bookings.find((booking) => {
+    const pickup = new Date(booking.pickupAt).getTime();
+    const returned = new Date(booking.returnAt).getTime();
+    return pickup <= nowMs && returned > nowMs;
+  });
+
+  if (current) {
+    const status = statusMeta(current.status);
+    return {
+      label: `Rientro ${relativeDateTimeLabel(current.returnAt, now)}`,
+      tone: status.tone,
+      customer: `In noleggio · ${current.customerName}`,
+      primaryBooking: current
+    };
+  }
+
+  const next = row.bookings.find((booking) => new Date(booking.pickupAt).getTime() > nowMs);
+  if (next) {
+    return {
+      label: `Libera fino ${relativeDateTimeLabel(next.pickupAt, now)}`,
+      tone: "available" as const,
+      customer: `Prossima consegna · ${next.customerName}`,
+      primaryBooking: next
+    };
+  }
+
+  return {
+    label: row.bookings.length ? "Libera ora" : "Libera oggi",
+    tone: "available" as const,
+    customer: row.bookings.length ? "Movimenti conclusi" : "Nessuna prenotazione",
+    primaryBooking: row.bookings.length ? row.bookings[row.bookings.length - 1] : null
+  };
 };
 
-const DashboardActionButton = ({
+const priorityMeta = (title: string) => {
+  const normalized = title.toLowerCase();
+  if (normalized.includes("manutenzione") || normalized.includes("revisione")) {
+    return { icon: Wrench, route: "/anagrafiche/manutenzioni", tone: "danger" as const };
+  }
+  if (normalized.includes("contratto") || normalized.includes("document")) {
+    return { icon: FileText, route: normalized.includes("contratto") ? "/booking/contratti" : "/anagrafiche/scadenziario", tone: "warning" as const };
+  }
+  if (normalized.includes("rientro") || normalized.includes("ritardo")) {
+    return { icon: Clock3, route: "/booking", tone: "danger" as const };
+  }
+  return { icon: AlertTriangle, route: "/booking", tone: "info" as const };
+};
+
+const timelineToneClasses = {
+  active: "dashboard-timeline-bar--active",
+  ready: "dashboard-timeline-bar--ready",
+  confirmed: "dashboard-timeline-bar--confirmed",
+  pending: "dashboard-timeline-bar--pending",
+  neutral: "dashboard-timeline-bar--neutral"
+} as const;
+
+const availabilityToneClasses = {
+  active: "dashboard-status-pill--active",
+  ready: "dashboard-status-pill--ready",
+  confirmed: "dashboard-status-pill--confirmed",
+  pending: "dashboard-status-pill--pending",
+  neutral: "dashboard-status-pill--neutral",
+  available: "dashboard-status-pill--available"
+} as const;
+
+const priorityToneClasses = {
+  danger: "dashboard-priority-item__icon--danger",
+  warning: "dashboard-priority-item__icon--warning",
+  info: "dashboard-priority-item__icon--info"
+} as const;
+
+const MetricCell = ({
+  icon: Icon,
+  value,
   label,
-  onClick,
-  variant = "outline"
+  detail,
+  progress
 }: {
+  icon: typeof Car;
+  value: string | number;
   label: string;
-  onClick: () => void;
-  variant?: "default" | "outline" | "secondary";
+  detail?: string;
+  progress?: number;
 }) => (
-  <Button type="button" variant={variant} size="sm" className="h-9 justify-start rounded-xl px-3" onClick={onClick}>
-    {label}
-  </Button>
+  <div className="dashboard-command-metric">
+    <span className="dashboard-command-metric__icon" aria-hidden="true">
+      <Icon className="h-5 w-5" />
+    </span>
+    {typeof progress === "number" ? (
+      <div className="dashboard-command-metric__radial" aria-label={`${progress}% ${label}`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <RadialBarChart
+            data={[{ value: clamp(progress, 0, 100), fill: "#16a34a" }]}
+            innerRadius="72%"
+            outerRadius="100%"
+            startAngle={90}
+            endAngle={-270}
+          >
+            <RadialBar dataKey="value" background={{ fill: "#e8f0ea" }} cornerRadius={6} />
+          </RadialBarChart>
+        </ResponsiveContainer>
+        <strong>{Math.round(progress)}%</strong>
+      </div>
+    ) : (
+      <strong className="dashboard-command-metric__value">{value}</strong>
+    )}
+    <span className="dashboard-command-metric__copy">
+      <b>{label}</b>
+      {detail ? <small>{detail}</small> : null}
+    </span>
+  </div>
 );
 
-const CompactBookingRow = ({
-  title,
-  subtitle,
-  meta,
-  badge,
+const TimelineBookingBar = ({
+  booking,
+  day,
   onOpen
 }: {
-  title: string;
-  subtitle: string;
-  meta: string;
-  badge?: string;
+  booking: DashboardBooking;
+  day: Date;
   onOpen: () => void;
-}) => (
-  <button
-    type="button"
-    className="dashboard-enterprise-item w-full rounded-xl border border-border/80 bg-background/75 p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_34px_-26px_rgba(37,99,235,0.65)]"
-    onClick={onOpen}
-  >
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-foreground">{title}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>
-      </div>
-      {badge ? <Badge variant={statusBadgeVariant(badge)}>{badge}</Badge> : null}
-    </div>
-    <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-300">{meta}</p>
-  </button>
-);
+}) => {
+  const pickupAt = new Date(booking.pickupAt);
+  const returnAt = new Date(booking.returnAt);
+  const dayStart = localDayStart(day);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
 
-const BookingControlRoom = ({ booking, onNavigate }: { booking: any; onNavigate: (to: string) => void }) => {
-  const kpis = booking?.kpis ?? {};
-  const contracts = booking?.contractKpis ?? {};
-  const economics = booking?.economicKpis ?? {};
-  const charts = booking?.charts ?? {};
-  const lists = booking?.lists ?? {};
-  const trend = (charts.trend ?? []).map((item: any) => ({
-    ...item,
-    day: typeof item.day === "string" ? item.day.slice(5) : "-"
-  }));
-  const utilization = (charts.utilization ?? []).map((item: any) => ({
-    ...item,
-    day: typeof item.day === "string" ? item.day.slice(5) : "-"
-  }));
-  const topVehicles = charts.topVehicles ?? [];
-  const contractDistribution = charts.contractStatusDistribution ?? [];
-  const criticalBookings = lists.criticalBookings ?? [];
-  const nextPickups = lists.nextPickups ?? [];
-  const nextReturns = lists.nextReturns ?? [];
+  if (
+    Number.isNaN(pickupAt.getTime()) ||
+    Number.isNaN(returnAt.getTime()) ||
+    pickupAt >= dayEnd ||
+    returnAt <= dayStart
+  ) {
+    return null;
+  }
+
+  const continuesBefore = pickupAt < dayStart;
+  const continuesAfter = returnAt > dayEnd;
+  const endsAtDayBoundary = returnAt.getTime() === dayEnd.getTime();
+  const start = continuesBefore ? timelineStartMinutes : minutesInDay(booking.pickupAt);
+  const end = continuesAfter || endsAtDayBoundary ? timelineEndMinutes : minutesInDay(booking.returnAt);
+  const left = positionForMinutes(start);
+  const right = positionForMinutes(end);
+  const width = Math.max(4, right - left);
+  const status = statusMeta(booking.status);
 
   return (
-    <div className="space-y-4">
-      <Card className="saas-surface dashboard-enterprise-card overflow-hidden">
-        <CardContent className="p-4 sm:p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Control Room Noleggi</p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-tight">Booking Noleggi</h2>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Disponibilita, uscite, rientri, contratti e criticita operative in un unico pannello.
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              <DashboardActionButton label="Nuova prenotazione" variant="default" onClick={() => onNavigate("/booking")} />
-              <DashboardActionButton label="Apri Booking" onClick={() => onNavigate("/booking")} />
-              <DashboardActionButton label="Contratti" onClick={() => onNavigate("/booking/contratti")} />
-              <DashboardActionButton label="Listini" onClick={() => onNavigate("/booking/listini")} />
-              <DashboardActionButton label="Nuovo cliente" onClick={() => onNavigate("/anagrafiche/clienti")} />
-              <DashboardActionButton label="Scadenziario" onClick={() => onNavigate("/anagrafiche/scadenziario")} />
-              <DashboardActionButton label="Manutenzioni" onClick={() => onNavigate("/anagrafiche/manutenzioni")} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <CardStat className="dashboard-enterprise-kpi" title="Disponibili oggi" value={kpis.availableToday ?? 0} extra={<p className="mt-1 text-xs text-muted-foreground">Su {kpis.totalRentalVehicles ?? 0} veicoli noleggio</p>} />
-        <CardStat className="dashboard-enterprise-kpi" title="Occupati oggi" value={kpis.occupiedToday ?? 0} extra={<p className="mt-1 text-xs text-muted-foreground">Occupazione {compactNumber(kpis.utilizationRateToday, "%")}</p>} />
-        <CardStat className="dashboard-enterprise-kpi" title="Uscite oggi" value={kpis.pickupsToday ?? 0} extra={<p className="mt-1 text-xs text-muted-foreground">Da preparare e consegnare</p>} />
-        <CardStat className="dashboard-enterprise-kpi" title="Rientri oggi" value={kpis.returnsToday ?? 0} extra={<p className="mt-1 text-xs text-muted-foreground">{kpis.overdueReturns ?? 0} rientri scaduti</p>} />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        <CardStat className="dashboard-enterprise-kpi" title="Contratti da generare" value={contracts.toGenerate ?? 0} />
-        <CardStat className="dashboard-enterprise-kpi" title="Contratti da inviare" value={contracts.toSend ?? 0} />
-        <CardStat className="dashboard-enterprise-kpi" title="Contratti inviati oggi" value={contracts.sentToday ?? 0} />
-        <CardStat className="dashboard-enterprise-kpi" title="Contratti firmati" value={contracts.signed ?? 0} />
-        <CardStat className="dashboard-enterprise-kpi" title="Contratti in errore" value={contracts.errors ?? 0} />
-        <CardStat className="dashboard-enterprise-kpi" title="Senza firma" value={contracts.unsigned ?? 0} />
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="saas-surface dashboard-enterprise-card xl:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Trend booking operativo</CardTitle>
-            <p className="text-xs text-muted-foreground">Prenotazioni create, uscite e rientri negli ultimi 30 giorni.</p>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {trend.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trend}>
-                    <defs>
-                      <linearGradient id="bookingCreated" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.24} />
-                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
-                    <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
-                    <Tooltip cursor={false} isAnimationActive={false} wrapperStyle={{ pointerEvents: "none" }} contentStyle={chartTooltipStyle} />
-                    <Area type="monotone" dataKey="created" name="Create" stroke="#4f46e5" fill="url(#bookingCreated)" strokeWidth={2} />
-                    <Line type="monotone" dataKey="pickups" name="Uscite" stroke="#059669" strokeWidth={2.4} dot={false} />
-                    <Line type="monotone" dataKey="returns" name="Rientri" stroke="#f59e0b" strokeWidth={2.4} dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="grid h-full place-items-center rounded-xl border border-dashed text-sm text-muted-foreground">Nessun dato booking disponibile.</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="saas-surface dashboard-enterprise-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Economia noleggio</CardTitle>
-            <p className="text-xs text-muted-foreground">Mese corrente, previsto vs consuntivo.</p>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <div className="rounded-xl border border-border/80 bg-background/75 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Ricavi previsti</p>
-              <p className="mt-1 text-2xl font-semibold">{formatCurrency(economics.expectedRevenueMonth)}</p>
-            </div>
-            <div className="rounded-xl border border-border/80 bg-background/75 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Ricavi consuntivi</p>
-              <p className="mt-1 text-2xl font-semibold">{formatCurrency(economics.finalRevenueMonth)}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <span className="rounded-lg bg-muted/50 p-2">Ticket medio<br /><b>{formatCurrency(economics.averageTicket)}</b></span>
-              <span className="rounded-lg bg-muted/50 p-2">€/veicolo<br /><b>{formatCurrency(economics.revenuePerVehicle)}</b></span>
-              <span className="rounded-lg bg-muted/50 p-2">€/giorno<br /><b>{formatCurrency(economics.revenuePerRentalDay)}</b></span>
-              <span className="rounded-lg bg-muted/50 p-2">Extra km<br /><b>{compactNumber(economics.extraKmActual)} reali</b></span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="saas-surface dashboard-enterprise-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base"><CalendarDays className="h-4 w-4" /> Prossime uscite</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {nextPickups.length ? nextPickups.map((item: any) => (
-              <CompactBookingRow key={item.id} title={item.customer} subtitle={item.vehicle} meta={`${formatDateTime(item.pickupAt)} · ${item.code}`} badge={item.contractStatus} onOpen={() => onNavigate("/booking")} />
-            )) : <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Nessuna uscita programmata.</p>}
-          </CardContent>
-        </Card>
-
-        <Card className="saas-surface dashboard-enterprise-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base"><Car className="h-4 w-4" /> Prossimi rientri</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {nextReturns.length ? nextReturns.map((item: any) => (
-              <CompactBookingRow key={item.id} title={item.customer} subtitle={item.vehicle} meta={`${formatDateTime(item.returnAt)} · Km: ${item.returnKm ?? "mancanti"}`} badge={item.contractStatus} onOpen={() => onNavigate("/booking")} />
-            )) : <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Nessun rientro programmato.</p>}
-          </CardContent>
-        </Card>
-
-        <Card className="saas-surface dashboard-enterprise-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4" /> Prenotazioni critiche</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {criticalBookings.length ? criticalBookings.slice(0, 6).map((item: any) => (
-              <CompactBookingRow key={`${item.bookingId}-${item.type}`} title={item.reason} subtitle={`${item.customer} · ${item.vehicle}`} meta={`${item.code} · ${formatDateTime(item.pickupAt)}`} badge={item.severity} onOpen={() => onNavigate("/booking")} />
-            )) : <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Nessuna criticita booking.</p>}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="saas-surface dashboard-enterprise-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base"><Gauge className="h-4 w-4" /> Occupazione flotta</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={utilization}>
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
-                  <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
-                  <Tooltip cursor={false} isAnimationActive={false} wrapperStyle={{ pointerEvents: "none" }} contentStyle={chartTooltipStyle} />
-                  <Area type="monotone" dataKey="utilization" name="Occupazione %" stroke="#2563eb" fill="#dbeafe" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="saas-surface dashboard-enterprise-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base"><ShieldCheck className="h-4 w-4" /> Stato contratti</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {contractDistribution.map((item: any) => (
-              <div key={item.status} className="flex items-center justify-between rounded-xl border border-border/80 bg-background/75 px-3 py-2">
-                <span className="text-sm font-medium">{item.status}</span>
-                <Badge variant={statusBadgeVariant(item.status)}>{item.count}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="saas-surface dashboard-enterprise-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base"><Wrench className="h-4 w-4" /> Top veicoli noleggiati</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {topVehicles.length ? topVehicles.map((item: any) => (
-              <div key={item.plate} className="rounded-xl border border-border/80 bg-background/75 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{item.plate}</p>
-                    <p className="truncate text-xs text-muted-foreground">{item.model}</p>
-                  </div>
-                  <p className="text-right text-sm font-semibold">{compactNumber(item.occupiedDays)} gg</p>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">Ricavo: {formatCurrency(item.revenue)}</p>
-              </div>
-            )) : <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Nessun ranking veicoli.</p>}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <button
+      type="button"
+      className={`dashboard-timeline-bar ${timelineToneClasses[status.tone]}`}
+      style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%` }}
+      onClick={onOpen}
+      title={`${booking.customerName} · ${booking.code} · ${new Date(booking.pickupAt).toLocaleString("it-IT")} - ${new Date(booking.returnAt).toLocaleString("it-IT")}`}
+    >
+      <span className="dashboard-timeline-bar__edge">
+        {continuesBefore ? <ChevronLeft className="h-3 w-3" aria-hidden="true" /> : null}
+        {continuesBefore ? "In corso" : timeLabel(booking.pickupAt)}
+      </span>
+      <span className="dashboard-timeline-bar__end dashboard-timeline-bar__edge">
+        {continuesAfter ? "Continua" : endsAtDayBoundary ? "24:00" : timeLabel(booking.returnAt)}
+        {continuesAfter ? <ChevronRight className="h-3 w-3" aria-hidden="true" /> : null}
+      </span>
+    </button>
   );
 };
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const [view, setView] = useState<"overview" | "operations" | "activity">("overview");
-  const [trendRange, setTrendRange] = useState<TrendRange>("30d");
-  const [trendIndex, setTrendIndex] = useState(0);
-  const { can } = useEntitlements();
-  const canReportsAdvanced = can("reports_advanced");
+  const today = useMemo(() => new Date(), []);
+  const [availabilityRetry, setAvailabilityRetry] = useState(0);
+  const todayIso = useMemo(() => toLocalIsoDay(today), [today]);
+  const stats = useAsync(() => statsUseCases.dashboard(), []);
+  const availability = useAsync(
+    () => rentalBookingsUseCases.dayAvailability({ date: todayIso }),
+    [todayIso, availabilityRetry]
+  );
 
-  const { data, loading, error } = useAsync(() => statsUseCases.dashboard(), []);
-  const assignments = useAsync(() => stoppagesUseCases.assignmentSuggestions(), []);
-  const costs = useAsync(() => stoppagesUseCases.costsSummary(), []);
-  const escalations = useAsync(() => stoppagesUseCases.slaEscalations(), []);
-  const preventive = useAsync(() => stoppagesUseCases.preventiveDue({ intervalDays: 180 }), []);
-  const variance = useAsync(() => stoppagesUseCases.costsVariance(), []);
+  const booking = stats.data?.booking as any;
+  const kpis = booking?.kpis ?? {};
+  const economics = booking?.economicKpis ?? {};
+  const lists = booking?.lists ?? {};
 
-  const trendStats = useAsync(() => {
-    if (!canReportsAdvanced) {
-      return Promise.resolve({
-        kpis: {
-          totalStoppages: 0,
-          openStoppages: 0,
-          closedStoppages: 0,
-          criticalOpen: 0,
-          overdueOpen: 0,
-          newStoppagesLast30: 0,
-          closedLast30: 0,
-          averageClosureDays: 0,
-          closureRateWithin7Days: 0,
-          remindersTotal: 0,
-          reminderSuccessRate: 0,
-          estimatedOpenCost: 0
+  const rows = useMemo<DashboardVehicleRow[]>(() => {
+    const source = availability.data?.data ?? [];
+    return source
+      .map((row) => ({
+        id: row.vehicle.id,
+        isAvailable: row.isAvailable,
+        vehicle: {
+          plate: row.vehicle.plate,
+          brand: row.vehicle.brand,
+          model: row.vehicle.model,
+          siteName: row.vehicle.site?.name ?? "-"
         },
-        charts: {
-          trendStoppages: [],
-          byStatus: [],
-          byPriority: [],
-          byWorkshop: [],
-          bySite: []
-        },
-        tables: {
-          longestOpen: [],
-          topVehiclesDowntime: [],
-          reminderFailures: []
-        }
+        bookings: row.bookings
+          .map((entry) => ({
+            id: entry.id,
+            code: entry.code,
+            customerName: entry.customerName,
+            pickupAt: entry.pickupAt,
+            returnAt: entry.returnAt,
+            status: entry.status,
+            contractStatus: entry.contractStatus
+          }))
+          .sort((a, b) => new Date(a.pickupAt).getTime() - new Date(b.pickupAt).getTime())
+      }))
+      .sort((a, b) => {
+        const rank = (row: DashboardVehicleRow) => {
+          const state = vehicleAvailabilityMeta(row, today);
+          if (state.tone !== "available") return 0;
+          if (row.bookings.some((booking) => new Date(booking.pickupAt).getTime() > today.getTime())) return 1;
+          return 2;
+        };
+        return rank(a) - rank(b) || a.vehicle.plate.localeCompare(b.vehicle.plate, "it");
+      })
+      .slice(0, 10);
+  }, [availability.data, today]);
+
+  const priorities = useMemo<PriorityItem[]>(() => {
+    const critical = Array.isArray(lists.criticalBookings) ? lists.criticalBookings : [];
+    const dashboardAlerts = Array.isArray(stats.data?.feeds?.alerts) ? stats.data.feeds.alerts : [];
+    const combined: PriorityItem[] = [];
+
+    critical.forEach((item: any) => {
+      const meta = priorityMeta(String(item.reason ?? "Criticità booking"));
+      combined.push({
+        id: `${item.bookingId ?? item.code ?? combined.length}-${item.type ?? "critical"}`,
+        title: String(item.reason ?? "Criticità booking"),
+        description: [item.vehicle, item.customer].filter(Boolean).join(" · "),
+        tone: meta.tone,
+        route: meta.route
       });
-    }
-    const { start, end } = getRangeBounds(trendRange);
-    return statsUseCases.analytics({
-      dateFrom: start.toISOString(),
-      dateTo: end.toISOString()
     });
-  }, [canReportsAdvanced, trendRange]);
 
-  const trendData = useMemo(
-    () =>
-      (trendStats.data?.charts?.trendStoppages ?? []).map((x: any) => ({
-        day: typeof x.day === "string" ? x.day.slice(5) : "-",
-        opened: Number(x.opened ?? 0),
-        closed: Number(x.closed ?? 0),
-        reminders: Number(x.reminders ?? 0),
-        balance: Number(x.opened ?? 0) - Number(x.closed ?? 0)
-      })),
-    [trendStats.data]
-  );
+    dashboardAlerts.forEach((item: any) => {
+      const title = String(item.message ?? item.title ?? "Attenzione richiesta");
+      const meta = priorityMeta(title);
+      combined.push({
+        id: String(item.id ?? `alert-${combined.length}`),
+        title,
+        description: [item.site, item.workshop].filter(Boolean).join(" · ") || "Apri il dettaglio per intervenire.",
+        tone: item.severity === "HIGH" ? "danger" : meta.tone,
+        route: meta.route
+      });
+    });
 
-  const trendHasData = useMemo(
-    () => trendData.length > 0,
-    [trendData]
-  );
+    return combined.filter((item, index, all) => all.findIndex((entry) => entry.title === item.title) === index).slice(0, 3);
+  }, [lists.criticalBookings, stats.data?.feeds?.alerts]);
 
-  const activeTrendView = trendViews[trendIndex];
-  const activeRangeLabel = rangeOptions.find((entry) => entry.value === trendRange)?.label ?? "30gg";
+  const currentMinutes = today.getHours() * 60 + today.getMinutes();
+  const showCurrentTime = currentMinutes >= timelineStartMinutes && currentMinutes <= timelineEndMinutes;
+  const currentTimeLeft = positionForMinutes(currentMinutes);
+  const finalRevenue = Number(economics.finalRevenueMonth ?? 0);
+  const expectedRevenue = Number(economics.expectedRevenueMonth ?? 0);
+  const displayedRevenue = finalRevenue > 0 ? finalRevenue : expectedRevenue;
+  const revenueLabel = finalRevenue > 0 ? "fatturato MTD" : "previsto MTD";
 
-  const goPrevTrend = () => setTrendIndex((prev) => (prev - 1 + trendViews.length) % trendViews.length);
-  const goNextTrend = () => setTrendIndex((prev) => (prev + 1) % trendViews.length);
-
-  if (loading) return <FleetumBlockLoader label="Caricamento dashboard" />;
-  if (error) return <p className="text-sm text-destructive">{error}</p>;
-  if (!data) return <FleetumBlockLoader label="Preparazione dashboard" />;
+  if (stats.loading) return <FleetumBlockLoader label="Caricamento centro operativo" />;
+  if (stats.error) return <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{stats.error}</p>;
+  if (!stats.data) return <FleetumBlockLoader label="Preparazione centro operativo" />;
 
   return (
-    <section className="dashboard-enterprise space-y-4">
-      <PageHeader
-        title="Dashboard"
-        subtitle="Panoramica manageriale: stato generale, priorita operative e attivita recenti."
-        actions={
-          <>
-            <Button variant={view === "overview" ? "default" : "outline"} size="sm" onClick={() => setView("overview")}>
-              Overview
-            </Button>
-            <Button variant={view === "operations" ? "default" : "outline"} size="sm" onClick={() => setView("operations")}>
-              Operativita
-            </Button>
-            <Button variant={view === "activity" ? "default" : "outline"} size="sm" onClick={() => setView("activity")}>
-              Attivita Recenti
-            </Button>
-          </>
-        }
-      />
+    <section className="dashboard-command-room" aria-label="Dashboard operativa Fleetum">
+      <div className="dashboard-command-strip" aria-label="Indicatori operativi di oggi">
+        <MetricCell icon={Car} value={kpis.availableToday ?? 0} label="disponibili" detail={`su ${kpis.totalRentalVehicles ?? 0}`} />
+        <MetricCell icon={ArrowUpRight} value={kpis.pickupsToday ?? 0} label="consegne" detail="oggi" />
+        <MetricCell icon={ArrowDownLeft} value={kpis.returnsToday ?? 0} label="rientri" detail="oggi" />
+        <MetricCell icon={CalendarDays} value="" label="occupazione" detail="flotta attiva" progress={Number(kpis.utilizationRateToday ?? 0)} />
+        <MetricCell icon={CircleDollarSign} value={formatCurrency(displayedRevenue)} label={revenueLabel} detail="mese corrente" />
+      </div>
 
-      {view === "overview" ? (
-        <>
-          <div className="g-stats-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-12">
-            <CardStat
-              className="dashboard-enterprise-kpi xl:col-span-3"
-              title="Fermi aperti"
-              value={data.kpis.openStoppages}
-              extra={<p className="mt-1 text-xs text-muted-foreground">Situazioni operative attive</p>}
-            />
-            <CardStat
-              className="dashboard-enterprise-kpi xl:col-span-3"
-              title="Critici aperti"
-              value={data.kpis.criticalOpen}
-              extra={<p className="mt-1 text-xs text-muted-foreground">Priorita alta da presidiare</p>}
-            />
-            <CardStat
-              className="dashboard-enterprise-kpi xl:col-span-3"
-              title="Overdue > 30gg"
-              value={data.kpis.overdueOpen}
-              extra={<p className="mt-1 text-xs text-muted-foreground">Da riallineare con officine</p>}
-            />
-            <CardStat
-              className="dashboard-enterprise-kpi xl:col-span-3"
-              title="Costo stimato cumulato"
-              value={formatCurrency(costs.data?.kpis?.estimatedTotalCost)}
-              valueClassName="font-semibold"
-              extra={<p className="mt-1 text-xs text-muted-foreground">Impatto economico corrente</p>}
-            />
-          </div>
+      <div className="dashboard-command-layout">
+        <div className="dashboard-command-main">
+          <header className="dashboard-command-section-head">
+            <div>
+              <p className="dashboard-command-eyebrow">Centro operativo</p>
+              <h2>Disponibilità e movimenti</h2>
+              <p>Ogni veicolo compare anche quando è libero, così la disponibilità resta sempre evidente.</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/booking")}>Vista mensile</Button>
+          </header>
 
-          <div className={`g-charts-row grid gap-4 ${canReportsAdvanced ? "xl:grid-cols-3" : "xl:grid-cols-1"}`}>
-            {canReportsAdvanced ? (
-              <Card className="saas-surface dashboard-enterprise-card xl:col-span-2">
-              <CardHeader className="space-y-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <CardTitle className="text-base">{activeTrendView.title}</CardTitle>
-                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{activeTrendView.subtitle}</p>
-                  </div>
-                  <div className="flex items-center gap-1 rounded-xl border border-border/80 bg-background/70 p-1 shadow-[0_12px_26px_-24px_rgba(15,23,42,0.4)]">
-                    {rangeOptions.map((option) => (
-                      <Button
-                        key={option.value}
-                        size="sm"
-                        variant={trendRange === option.value ? "default" : "ghost"}
-                        className="h-7 px-3"
-                        onClick={() => setTrendRange(option.value)}
-                      >
-                        {option.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                  <div className="saas-chart-shell relative h-[320px] rounded-xl p-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
-                      aria-label="Trend precedente"
-                      onClick={goPrevTrend}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="absolute right-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2"
-                      aria-label="Trend successivo"
-                      onClick={goNextTrend}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-
-                    <div className="h-full px-9 py-1">
-                      {trendStats.loading ? (
-                        <FleetumBlockLoader label="Caricamento trend" className="h-full min-h-0" />
-                      ) : trendStats.error ? (
-                        <div className="grid h-full place-items-center text-sm text-destructive">{trendStats.error}</div>
-                      ) : !trendHasData ? (
-                        <div className="grid h-full place-items-center rounded-lg border border-dashed text-sm text-muted-foreground">
-                          Nessun dato trend disponibile per {activeRangeLabel}.
-                        </div>
-                      ) : trendIndex === 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={trendData}>
-                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
-                            <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
-                            <Tooltip
-                              cursor={false}
-                              isAnimationActive={false}
-                              wrapperStyle={{ pointerEvents: "none" }}
-                              contentStyle={chartTooltipStyle}
-                              labelStyle={{ color: "rgba(13,15,46,0.56)" }}
-                            />
-                            <Line type="monotone" dataKey="opened" stroke="#2563eb" strokeWidth={2} name="Aperti" />
-                            <Line type="monotone" dataKey="closed" stroke="#059669" strokeWidth={2} name="Chiusi" />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      ) : trendIndex === 1 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={trendData}>
-                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
-                            <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
-                            <Tooltip
-                              cursor={false}
-                              isAnimationActive={false}
-                              wrapperStyle={{ pointerEvents: "none" }}
-                              contentStyle={chartTooltipStyle}
-                              labelStyle={{ color: "rgba(13,15,46,0.56)" }}
-                            />
-                            <Bar dataKey="reminders" name="Reminder" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={trendData}>
-                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={chartAxisTick} />
-                            <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
-                            <Tooltip
-                              cursor={false}
-                              isAnimationActive={false}
-                              wrapperStyle={{ pointerEvents: "none" }}
-                              contentStyle={chartTooltipStyle}
-                              labelStyle={{ color: "rgba(13,15,46,0.56)" }}
-                            />
-                            <Line type="monotone" dataKey="balance" stroke="#d97706" strokeWidth={2} name="Saldo" />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
-                      Trend {trendIndex + 1}/3 · Range {activeRangeLabel}
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                      {trendViews.map((_, idx) => (
-                        <button
-                          key={`trend-dot-${idx}`}
-                          type="button"
-                          onClick={() => setTrendIndex(idx)}
-                          aria-label={`Vai al trend ${idx + 1}`}
-                          className={`h-2.5 w-2.5 rounded-full transition ${idx === trendIndex ? "bg-primary" : "bg-muted"}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-              </CardContent>
-              </Card>
-            ) : null}
-
-            <Card className="saas-surface dashboard-enterprise-card">
-              <CardHeader>
-                <CardTitle className="text-base">Alert prioritari</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {(data.feeds.alerts || []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nessun alert prioritario.</p>
-                ) : (
-                  data.feeds.alerts.slice(0, 6).map((alert: any) => (
-                    <div key={alert.id} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">{alert.message}</p>
-                        <Badge variant={alert.severity === "HIGH" ? "destructive" : alert.severity === "MEDIUM" ? "warning" : "secondary"}>
-                          {alert.severity}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{alert.site} · {alert.workshop}</p>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <BookingControlRoom booking={data.booking} onNavigate={navigate} />
-        </>
-      ) : null}
-
-      {view === "operations" ? (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <CardStat className="dashboard-enterprise-kpi" title="Totale fermi" value={data.kpis.totalStoppages} />
-            <CardStat className="dashboard-enterprise-kpi" title="Nuovi fermi (30gg)" value={data.kpis.newStoppagesLast30} />
-            <CardStat className="dashboard-enterprise-kpi" title="Chiusi (30gg)" value={data.kpis.closedLast30} />
-            <CardStat className="dashboard-enterprise-kpi" title="Durata media chiusura" value={`${data.kpis.averageClosureDays} gg`} />
-            <CardStat className="dashboard-enterprise-kpi" title="Escalation L3" value={escalations.data?.kpis?.level3 ?? 0} />
-            <CardStat className="dashboard-enterprise-kpi" title="Preventiva gg in scadenza" value={preventive.data?.kpis?.dueSoonDays ?? 0} />
-            <CardStat className="dashboard-enterprise-kpi" title="Preventiva gg scaduta" value={preventive.data?.kpis?.dueNowDays ?? 0} />
-            <CardStat className="dashboard-enterprise-kpi" title="Preventiva km in scadenza" value={preventive.data?.kpis?.dueSoonKm ?? 0} />
-            <CardStat className="dashboard-enterprise-kpi" title="Preventiva km scaduta" value={preventive.data?.kpis?.dueNowKm ?? 0} />
-            <CardStat className="dashboard-enterprise-kpi" title="Scostamento costi" value={`EUR ${variance.data?.kpis?.varianceTotal ?? 0}`} />
-          </div>
-
-          <div className="g-charts-row grid gap-4 xl:grid-cols-3">
-            <Card className="saas-surface dashboard-enterprise-card xl:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-base">Distribuzione stati fermi</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.charts.byStatus.map((x: any) => ({ ...x, status: stoppageStatusLabel[x.status] ?? x.status }))}>
-                      <XAxis dataKey="status" axisLine={false} tickLine={false} tick={chartAxisTick} />
-                      <YAxis axisLine={false} tickLine={false} tick={chartAxisTick} />
-                      <Tooltip
-                        cursor={false}
-                        isAnimationActive={false}
-                        wrapperStyle={{ pointerEvents: "none" }}
-                        contentStyle={chartTooltipStyle}
-                        labelStyle={{ color: "rgba(13,15,46,0.56)" }}
-                      />
-                      <Bar dataKey="count" fill="#2563eb" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="saas-surface dashboard-enterprise-card">
-              <CardHeader>
-                <CardTitle className="text-base">Suggerimenti assegnazione</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {(assignments.data?.suggestions ?? []).map((item: any) => (
-                  <div key={item.userId} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
-                    <p className="text-sm font-medium">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.email}</p>
-                    <p className="text-xs text-muted-foreground">Carico: {item.assignedCount} fermi · peso {item.weightedLoad}</p>
-                  </div>
+          <div className="dashboard-timeline-viewport">
+            <div className="dashboard-timeline-grid dashboard-timeline-grid--header" role="row">
+              <span>Veicolo / targa</span>
+              <span>Cliente</span>
+              <div className="dashboard-time-header" aria-label="Orari timeline">
+                {timelineHours.map((hour) => (
+                  <span key={hour} style={{ left: `${positionForMinutes(hour * 60)}%` }}>{String(hour).padStart(2, "0")}:00</span>
                 ))}
-              </CardContent>
-            </Card>
+                {showCurrentTime ? (
+                  <strong className="dashboard-current-time-label" style={{ left: `${currentTimeLeft}%` }}>
+                    {timeLabel(today.toISOString())}
+                  </strong>
+                ) : null}
+              </div>
+              <span>Sede</span>
+              <span>Stato</span>
+              <span aria-hidden="true" />
+            </div>
+
+            {availability.loading ? (
+              <FleetumBlockLoader label="Caricamento movimenti" className="min-h-[360px]" />
+            ) : availability.error ? (
+              <div className="dashboard-command-empty">
+                <AlertTriangle className="h-5 w-5" />
+                <div>
+                  <strong>Timeline non disponibile</strong>
+                  <p>{availability.error}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setAvailabilityRetry((value) => value + 1)}>Riprova</Button>
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="dashboard-command-empty">
+                <CalendarDays className="h-5 w-5" />
+                <div>
+                  <strong>Nessun movimento programmato oggi</strong>
+                  <p>La flotta risulta libera nel periodo operativo visualizzato.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigate("/booking")}>Apri prenotazioni</Button>
+              </div>
+            ) : (
+              <div role="rowgroup">
+                {rows.map((row) => {
+                  const availabilityState = vehicleAvailabilityMeta(row, today);
+                  return (
+                    <div key={row.id} className="dashboard-timeline-grid dashboard-timeline-grid--row" role="row">
+                      <div className="dashboard-vehicle-cell">
+                        <span className="dashboard-vehicle-cell__icon"><Car className="h-4 w-4" /></span>
+                        <span>
+                          <b>{row.vehicle.brand} {row.vehicle.model}</b>
+                          <small>{row.vehicle.plate}</small>
+                        </span>
+                      </div>
+                      <span className="dashboard-customer-cell">{availabilityState.customer}</span>
+                      <div className={`dashboard-time-track ${row.bookings.length === 0 ? "dashboard-time-track--available" : ""}`}>
+                        {timelineGridHours.map((hour) => (
+                          <i key={hour} aria-hidden="true" style={{ left: `${positionForMinutes(hour * 60)}%` }} />
+                        ))}
+                        {showCurrentTime ? (
+                          <span className="dashboard-current-time" style={{ left: `${currentTimeLeft}%` }} aria-label={`Ora attuale ${timeLabel(today.toISOString())}`} />
+                        ) : null}
+                        {row.bookings.length ? row.bookings.map((entry) => (
+                          <TimelineBookingBar key={entry.id} booking={entry} day={today} onOpen={() => navigate("/booking")} />
+                        )) : (
+                          <span className="dashboard-availability-label">
+                            <CircleCheck className="h-3.5 w-3.5" /> Disponibile per nuove prenotazioni
+                          </span>
+                        )}
+                      </div>
+                      <span className="dashboard-site-cell"><MapPin className="h-3.5 w-3.5" /> {row.vehicle.siteName}</span>
+                      <span className={`dashboard-status-pill ${availabilityToneClasses[availabilityState.tone]}`}>{availabilityState.label}</span>
+                      <button type="button" className="dashboard-row-action" onClick={() => navigate("/booking")} aria-label={`Apri prenotazioni ${row.vehicle.plate}`}>
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </>
-      ) : null}
 
-      {view === "activity" ? (
-        <div className="grid gap-4 xl:grid-cols-3">
-          <Card className="saas-surface dashboard-enterprise-card">
-            <CardHeader>
-              <CardTitle className="text-base">Ultimi utenti iscritti</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {data.feeds.recentUsers.map((user: any) => (
-                <div key={user.id} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
-                  <p className="text-sm font-medium">{user.firstName} {user.lastName}</p>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="saas-surface dashboard-enterprise-card">
-            <CardHeader>
-              <CardTitle className="text-base">Ultimi fermi creati</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {data.feeds.recentStoppages.map((row: any) => (
-                <div key={row.id} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
-                  <p className="text-sm font-medium">{row.plate} · {row.brand} {row.model}</p>
-                  <p className="text-xs text-muted-foreground">{row.site} · {row.workshop}</p>
-                  <p className="text-xs text-muted-foreground">{row.reason}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="saas-surface dashboard-enterprise-card">
-            <CardHeader>
-              <CardTitle className="text-base">Ultimi reminder inviati</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {data.feeds.recentReminders.map((reminder: any) => (
-                <div key={reminder.id} className="dashboard-enterprise-item rounded-lg border border-border/80 bg-background/75 p-2">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{reminder.plate}</p>
-                    <Badge variant={reminder.success ? "success" : "destructive"}>{reminder.success ? "OK" : "KO"}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{reminder.type} · {reminder.channel}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(reminder.sentAt).toLocaleString("it-IT")}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          <footer className="dashboard-timeline-legend" aria-label="Legenda stati">
+            <span><i className="bg-emerald-200 ring-1 ring-emerald-500/40" /> Disponibile</span>
+            <span><i className="bg-emerald-500" /> In corso</span>
+            <span><i className="bg-blue-500" /> Confermato / pronto</span>
+            <span><i className="bg-amber-500" /> Da confermare</span>
+            <span><i className="bg-slate-400" /> Chiuso / altro</span>
+          </footer>
         </div>
-      ) : null}
+
+        <aside className="dashboard-priority-rail" aria-label="Priorità operative">
+          <header>
+            <div>
+              <p className="dashboard-command-eyebrow">Azioni richieste</p>
+              <h2>Priorità</h2>
+            </div>
+            <span>{priorities.length}</span>
+          </header>
+
+          <div className="dashboard-priority-list">
+            {priorities.length ? priorities.map((item) => {
+              const meta = priorityMeta(item.title);
+              const Icon = meta.icon;
+              return (
+                <button key={item.id} type="button" className="dashboard-priority-item" onClick={() => navigate(item.route)}>
+                  <span className={`dashboard-priority-item__icon ${priorityToneClasses[item.tone]}`}><Icon className="h-5 w-5" /></span>
+                  <span>
+                    <b>{item.title}</b>
+                    <small>{item.description}</small>
+                    <em>Apri dettaglio</em>
+                  </span>
+                </button>
+              );
+            }) : (
+              <div className="dashboard-priority-clear">
+                <span><CircleCheck className="h-5 w-5" /></span>
+                <b>Nessuna criticità urgente</b>
+                <p>Le attività di oggi non presentano blocchi prioritari.</p>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
     </section>
   );
 };

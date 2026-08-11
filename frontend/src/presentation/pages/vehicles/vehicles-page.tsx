@@ -321,8 +321,9 @@ export const VehiclesPage = () => {
   return (
     <section className="space-y-3">
       <PageHeader
+        eyebrow="Flotta"
         title="Anagrafiche Veicoli"
-        subtitle="Gestione veicoli con ricerca, modifica rapida e allineamento operativo con sedi/officine."
+        subtitle="Schede mezzo, documenti, dati economici e assegnazione alle sedi in un unico archivio."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={openImportPanel}>
@@ -337,11 +338,14 @@ export const VehiclesPage = () => {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
 
-      <Card className="saas-surface shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Elenco veicoli</CardTitle>
+      <Card className="saas-surface overflow-hidden">
+        <CardHeader className="flex-row items-center justify-between border-b px-4 py-3">
+          <div>
+            <CardTitle className="text-sm">Elenco veicoli</CardTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">{totalVehicles} mezzi registrati</p>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 p-4">
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -461,8 +465,8 @@ export const VehiclesPage = () => {
 
       {panelOpen ? (
         <>
-          <div className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-sm" onClick={() => setPanelOpen(false)} />
-          <aside className="fixed z-[80] right-0 top-0 h-full w-full max-w-xl border-l bg-card shadow-2xl max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[88vh] max-sm:rounded-t-2xl max-sm:border-t max-sm:border-l-0">
+          <div className="fixed inset-0 z-[70] bg-slate-950/35 backdrop-blur-[2px]" onClick={() => setPanelOpen(false)} />
+          <aside className="fixed right-0 top-0 z-[80] h-full w-full max-w-xl border-l bg-card shadow-[-20px_0_50px_-30px_rgba(15,23,42,0.35)] max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[90vh] max-sm:rounded-t-2xl max-sm:border-l-0 max-sm:border-t">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <p className="text-sm font-semibold">{mode === "create" ? "Nuovo veicolo" : "Modifica veicolo"}</p>
               <Button variant="outline" size="icon" onClick={() => setPanelOpen(false)}>

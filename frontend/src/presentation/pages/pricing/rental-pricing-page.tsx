@@ -551,15 +551,16 @@ export const RentalPricingPage = () => {
   return (
     <section className="space-y-3">
       <PageHeader
+        eyebrow="Pricing operativo"
         title="Listini Noleggi"
-        subtitle="Configura tariffa base, pacchetti km (100km, illimitati) e tariffari km extra per booking e contratti."
+        subtitle="Gestisci tariffe, pacchetti chilometrici e regole extra applicate a booking e contratti."
       />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
 
-      <Card className="saas-surface">
-        <CardContent className="space-y-3 py-4">
+      <Card className="saas-surface overflow-hidden">
+        <CardContent className="space-y-3 p-4">
           <div className="grid gap-2 md:grid-cols-[1fr_180px_auto]">
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cerca listino..." />
             <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
@@ -595,7 +596,7 @@ export const RentalPricingPage = () => {
                 </TableRow>
               ) : (
                 lists.map((list) => (
-                  <TableRow key={list.id} className={selectedListId === list.id ? "bg-primary/5" : ""}>
+                  <TableRow key={list.id} className={selectedListId === list.id ? "bg-blue-50/70 dark:bg-blue-950/20" : ""}>
                     <TableCell>
                       <p className="font-medium">{list.name}</p>
                       <p className="text-[11px] text-muted-foreground">{list.description || "-"}</p>
@@ -636,7 +637,7 @@ export const RentalPricingPage = () => {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 xl:grid-cols-3">
+      <div className="grid items-start gap-3 xl:grid-cols-3">
         <Card className="saas-surface xl:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{listForm.id ? "Modifica listino" : "Nuovo listino"}</CardTitle>

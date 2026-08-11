@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { RentalBookingStatus } from "../../../application/usecases/rental-bookings-usecases";
+import { rentalDurationLabel } from "../../../domain/rental-booking-duration";
 import { Car, MapPin, ShieldCheck, Wrench } from "lucide-react";
 
 type BookingCell = {
@@ -87,6 +88,9 @@ const formatShortDateTime = (value: string) =>
     minute: "2-digit"
   });
 
+const formatTime = (value: string) =>
+  new Date(value).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+
 const deadlineToneClass = (status: DeadlineIndicator["status"]) => {
   if (status === "EXPIRED") return "border-rose-300 bg-rose-100 text-rose-700 dark:border-rose-800/70 dark:bg-rose-950/50 dark:text-rose-300";
   if (status === "DUE_SOON") return "border-amber-300 bg-amber-100 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/50 dark:text-amber-300";
@@ -112,9 +116,9 @@ export const RentalBookingMonthlyGrid = ({
   getStatusClass
 }: Props) => {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const vehicleColumnWidth = 286;
-  const siteColumnWidth = 148;
-  const dayColumnMinWidth = 42;
+  const vehicleColumnWidth = 316;
+  const siteColumnWidth = 154;
+  const dayColumnMinWidth = 50;
   const daysColumns = `repeat(${monthDays.length}, minmax(${dayColumnMinWidth}px, 1fr))`;
   const minGridWidth = vehicleColumnWidth + siteColumnWidth + monthDays.length * dayColumnMinWidth;
   const today = new Date();
@@ -192,13 +196,36 @@ export const RentalBookingMonthlyGrid = ({
           const filteredBookings = row.bookings.filter((booking) => (statusFilter ? booking.status === statusFilter : true));
           const maintenanceStatus = row.vehicle.deadlineStatus?.maintenance ?? fallbackDeadline("Manutenzione ok");
           const revisionStatus = row.vehicle.deadlineStatus?.revision ?? fallbackDeadline("Revisione ok");
+          const monthContainsToday = monthDays.some((date) => isSameCalendarDay(date, today));
+          const nowMs = today.getTime();
+          const currentBooking = row.bookings.find((booking) => {
+            const pickup = new Date(booking.pickupAt).getTime();
+            const returned = new Date(booking.returnAt).getTime();
+            return pickup <= nowMs && returned > nowMs;
+          });
+          const nextBookingToday = row.bookings.find((booking) => {
+            const pickup = new Date(booking.pickupAt);
+            return pickup.getTime() > nowMs && isSameCalendarDay(pickup, today);
+          });
+          const availabilityLabel = monthContainsToday
+            ? currentBooking
+              ? `Occupata fino ${formatTime(currentBooking.returnAt)}`
+              : nextBookingToday
+                ? `Libera fino ${formatTime(nextBookingToday.pickupAt)}`
+                : "Disponibile oggi"
+            : row.bookings.length
+              ? `${row.bookings.length} ${row.bookings.length === 1 ? "prenotazione" : "prenotazioni"} nel mese`
+              : "Disponibile nel mese";
+          const availabilityTone = currentBooking
+            ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
+            : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200";
           return (
           <div
             key={row.vehicle.id}
             className="grid border-b border-slate-200/70 last:border-b-0 dark:border-border/60"
             style={{ gridTemplateColumns: `${vehicleColumnWidth}px ${siteColumnWidth}px minmax(0, 1fr)` }}
           >
-            <div className="sticky left-0 z-30 flex h-[68px] flex-col justify-center overflow-hidden border-r border-slate-200/80 bg-white px-4 shadow-[14px_0_22px_-22px_rgba(15,23,42,0.75)] dark:border-border/80 dark:bg-card">
+            <div className="sticky left-0 z-30 flex h-[78px] flex-col justify-center overflow-hidden border-r border-slate-200/80 bg-white px-4 shadow-[14px_0_22px_-22px_rgba(15,23,42,0.75)] dark:border-border/80 dark:bg-card">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300" aria-hidden="true">
                   <Car className="h-4 w-4" />
@@ -224,9 +251,12 @@ export const RentalBookingMonthlyGrid = ({
                   </span>
                 </span>
               </div>
+              <span className={`mt-1.5 inline-flex w-fit max-w-full items-center rounded-full border px-2 py-0.5 text-[9px] font-bold ${availabilityTone}`}>
+                <span className="truncate">{availabilityLabel}</span>
+              </span>
             </div>
             <div
-              className="sticky z-20 flex h-[68px] items-center border-r border-slate-200/80 bg-white px-3 shadow-[14px_0_22px_-24px_rgba(15,23,42,0.55)] dark:border-border/80 dark:bg-card"
+              className="sticky z-20 flex h-[78px] items-center border-r border-slate-200/80 bg-white px-3 shadow-[14px_0_22px_-24px_rgba(15,23,42,0.55)] dark:border-border/80 dark:bg-card"
               style={{ left: `${vehicleColumnWidth}px` }}
             >
               <div className="min-w-0">
@@ -240,8 +270,11 @@ export const RentalBookingMonthlyGrid = ({
             <div className="relative">
               <div className="grid" style={{ gridTemplateColumns: daysColumns }}>
                 {monthDays.map((date) => {
-                  const dayBookings = filteredBookings.filter((booking) => overlapsDay(booking, date));
-                  const first = dayBookings[0];
+                  const allDayBookings = row.bookings.filter((booking) => overlapsDay(booking, date));
+                  const visibleDayBookings = filteredBookings.filter((booking) => overlapsDay(booking, date));
+                  const first = visibleDayBookings[0];
+                  const isOccupied = allDayBookings.length > 0;
+                  const isHiddenByFilter = isOccupied && !first;
                   const isSelected = Boolean(first && selectedBookingId === first.id);
                   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                   const isToday = isSameCalendarDay(date, today);
@@ -250,14 +283,15 @@ export const RentalBookingMonthlyGrid = ({
                     <button
                       key={`${row.vehicle.id}-${date.toISOString()}`}
                       type="button"
-                      className={`group relative h-[68px] border-r border-slate-200/60 px-0.5 text-left transition-colors last:border-r-0 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-border/60 ${
+                      className={`group relative h-[78px] border-r border-slate-200/60 px-0.5 text-left transition-colors last:border-r-0 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed dark:border-border/60 ${
                         isWeekend ? "bg-slate-50/65 dark:bg-muted/[0.18]" : "bg-white dark:bg-card"
-                      } ${isToday ? "bg-blue-50/80 dark:bg-primary/[0.045]" : ""} ${first ? "hover:bg-blue-50/80 dark:hover:bg-primary/5" : "hover:bg-slate-50 dark:hover:bg-muted/35"} ${
+                      } ${isToday ? "bg-blue-50/80 dark:bg-primary/[0.045]" : ""} ${first ? "hover:bg-blue-50/80 dark:hover:bg-primary/5" : isHiddenByFilter ? "bg-slate-100/80 dark:bg-muted/45" : "bg-emerald-50/35 hover:bg-emerald-50/80 dark:bg-emerald-500/[0.035] dark:hover:bg-emerald-500/[0.08]"} ${
                         isSelected ? "ring-1 ring-primary/50" : ""
                       }`}
+                      disabled={isHiddenByFilter}
                       onClick={() => {
                         if (first) onSelectBooking(first.id);
-                        else onEmptyCellClick({ vehicleId: row.vehicle.id, date });
+                        else if (!isOccupied) onEmptyCellClick({ vehicleId: row.vehicle.id, date });
                       }}
                       onContextMenu={(event) => {
                         if (!first) return;
@@ -267,10 +301,15 @@ export const RentalBookingMonthlyGrid = ({
                       aria-label={
                         first
                           ? `Prenotazione ${first.code} - ${first.customerName}`
-                          : `Cella vuota ${row.vehicle.plate} ${date.toLocaleDateString("it-IT")}`
+                          : isHiddenByFilter
+                            ? `Occupata da una prenotazione esclusa dal filtro, ${row.vehicle.plate}, ${date.toLocaleDateString("it-IT")}`
+                            : `Disponibile, ${row.vehicle.plate}, ${date.toLocaleDateString("it-IT")}`
                       }
                     >
                       {isToday ? <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-blue-500/35" aria-hidden="true" /> : null}
+                      {!isOccupied ? (
+                        <span className="absolute bottom-2 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-emerald-400/55 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+                      ) : null}
                     </button>
                   );
                 })}
@@ -282,11 +321,12 @@ export const RentalBookingMonthlyGrid = ({
                     if (!span) return null;
                     const isSelected = selectedBookingId === booking.id;
                     const dateRange = `${formatShortDateTime(booking.pickupAt)} - ${formatShortDateTime(booking.returnAt)}`;
+                    const duration = rentalDurationLabel(booking.pickupAt, booking.returnAt);
                     return (
                       <button
                         key={`bar-${booking.id}`}
                         type="button"
-                        className={`pointer-events-auto mx-[4px] my-[17px] flex h-[34px] min-w-0 items-center rounded-[14px] border px-2.5 text-left text-[10px] font-bold leading-none shadow-sm transition-[box-shadow,transform,filter] duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${getStatusClass(booking.status)} ${
+                        className={`pointer-events-auto relative mx-[4px] my-[18px] flex h-[42px] min-w-0 items-center rounded-[13px] border px-2.5 text-left text-[10px] font-bold leading-none shadow-sm transition-[box-shadow,transform,filter] duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${getStatusClass(booking.status)} ${
                           isSelected ? "ring-2 ring-primary/80" : ""
                         }`}
                         style={{ gridColumn: `${span.start + 1} / span ${span.span}` }}
@@ -295,13 +335,18 @@ export const RentalBookingMonthlyGrid = ({
                           event.preventDefault();
                           onBookingContextMenu({ booking, x: event.clientX, y: event.clientY });
                         }}
-                        title={`${booking.code} · ${booking.customerName} · ${dateRange}`}
-                        aria-label={`Prenotazione ${booking.code} - ${booking.customerName}`}
+                        title={`${booking.code} · ${booking.customerName} · ${dateRange}${duration ? ` · ${duration}` : ""}`}
+                        aria-label={`Prenotazione ${booking.code} - ${booking.customerName}${duration ? ` - ${duration}` : ""}`}
                       >
-                        <span className="mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden="true" />
-                        <span className="block min-w-0 truncate">{booking.customerName}</span>
-                        <span className="ml-auto hidden shrink-0 rounded-full bg-white/45 px-1.5 py-0.5 text-[9px] font-black sm:inline dark:bg-black/15">
-                          {booking.code}
+                        <span className="absolute left-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden="true" />
+                        <span className="flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden px-2">
+                          <span className="min-w-0 truncate">{booking.customerName}</span>
+                          <span className="hidden shrink-0 rounded-full bg-white/45 px-1.5 py-0.5 text-[9px] font-black sm:inline dark:bg-black/15">
+                            {booking.code}
+                          </span>
+                          {duration && span.span >= 6 ? (
+                            <span className="hidden shrink-0 opacity-75 2xl:inline">{duration.split(" · ")[0]}</span>
+                          ) : null}
                         </span>
                       </button>
                     );

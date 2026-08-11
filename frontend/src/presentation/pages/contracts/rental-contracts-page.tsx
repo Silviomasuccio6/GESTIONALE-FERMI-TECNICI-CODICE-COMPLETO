@@ -100,10 +100,10 @@ const ContractsKpiCard = ({
           : "text-foreground";
 
   return (
-    <Card className="saas-surface dashboard-enterprise-kpi min-h-[138px]">
-      <CardContent className="flex min-h-[138px] flex-col justify-center gap-2 px-5 py-4">
+    <Card className="saas-surface dashboard-enterprise-kpi min-h-[104px]">
+      <CardContent className="flex min-h-[104px] flex-col justify-center gap-1.5 px-4 py-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
-        <p className={cn("font-display text-[clamp(1.8rem,2.2vw,2.25rem)] font-semibold leading-none tracking-tight", valueClassName)}>
+        <p className={cn("font-display text-[clamp(1.55rem,2vw,1.9rem)] font-semibold leading-none tracking-tight", valueClassName)}>
           {value}
         </p>
         <p className="text-xs text-muted-foreground">{hint}</p>
@@ -472,14 +472,16 @@ export const RentalContractsPage = () => {
   return (
     <section className="dashboard-enterprise space-y-4">
       <PageHeader
+        eyebrow="Documenti operativi"
         title="Contratti Noleggio"
-        subtitle="Monitoraggio operativo contratti, invii multicanale e collegamenti rapidi con booking/clienti."
+        subtitle="Monitora preparazione, invio e firma dei contratti collegati alle prenotazioni."
+        actions={<Button onClick={() => navigate("/booking")}>Apri Booking</Button>}
       />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
         <ContractsKpiCard title="Da inviare" value={kpis.contractsToSend} hint="Contratti pronti ma non ancora inviati" valueTone="warning" />
         <ContractsKpiCard title="Inviati oggi" value={kpis.sentToday} hint="Invii completati nelle ultime 24h" />
         <ContractsKpiCard title="Firmati" value={kpis.signed} hint="Contratti con firma acquisita" valueTone="success" />
@@ -489,15 +491,15 @@ export const RentalContractsPage = () => {
       </div>
 
       <Card className="saas-surface dashboard-enterprise-card">
-        <CardContent className="space-y-3 px-4 py-4 md:px-5">
+        <CardContent className="space-y-3 p-3">
           <div className="grid items-center gap-3 xl:grid-cols-[minmax(260px,1.25fr)_160px_190px_190px_210px_auto]">
             <Input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Cerca cliente, targa, codice booking..."
-              className="h-10"
+              className="h-9"
             />
-            <Select value={period} onChange={(event) => setPeriod(event.target.value as typeof period)} className="h-10">
+            <Select value={period} onChange={(event) => setPeriod(event.target.value as typeof period)}>
               <option value="all">Periodo: tutto</option>
               <option value="7d">Periodo: 7gg</option>
               <option value="30d">Periodo: 30gg</option>
@@ -507,7 +509,6 @@ export const RentalContractsPage = () => {
             <Select
               value={contractStatus}
               onChange={(event) => setContractStatus(event.target.value as "" | BookingContractStatus)}
-              className="h-10"
             >
               <option value="">Contratto: tutti</option>
               <option value="DRAFT">Bozza</option>
@@ -519,20 +520,19 @@ export const RentalContractsPage = () => {
             <Select
               value={bookingStatus}
               onChange={(event) => setBookingStatus(event.target.value as "" | RentalBookingStatus)}
-              className="h-10"
             >
               <option value="">Prenotazione: tutti</option>
               {Object.entries(BOOKING_STATUS_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
             </Select>
-            <Select value={siteId} onChange={(event) => setSiteId(event.target.value)} className="h-10">
+            <Select value={siteId} onChange={(event) => setSiteId(event.target.value)}>
               <option value="">Tutte le sedi</option>
               {sites.map((site) => (
                 <option key={site.id} value={site.id}>{site.name}{site.city ? ` · ${site.city}` : ""}</option>
               ))}
             </Select>
-            <Button variant="outline" className="h-10 whitespace-nowrap px-4" onClick={() => void loadContracts(page)}>
+            <Button variant="outline" className="whitespace-nowrap px-4" onClick={() => void loadContracts(page)}>
               Aggiorna
             </Button>
           </div>
@@ -546,11 +546,14 @@ export const RentalContractsPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="saas-surface dashboard-enterprise-card">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Elenco contratti</CardTitle>
+      <Card className="saas-surface dashboard-enterprise-card overflow-hidden">
+        <CardHeader className="flex-row items-center justify-between border-b px-4 py-3">
+          <div>
+            <CardTitle className="text-sm">Elenco contratti</CardTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">{total} contratti nel periodo selezionato</p>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3 pt-0">
+        <CardContent className="space-y-3 p-4">
           <Table className="text-xs">
               <TableHeader>
                 <TableRow>
@@ -648,7 +651,7 @@ export const RentalContractsPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="saas-surface dashboard-enterprise-card mt-4">
+      <Card className="saas-surface dashboard-enterprise-card mt-2">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Timeline operativa</CardTitle>
         </CardHeader>

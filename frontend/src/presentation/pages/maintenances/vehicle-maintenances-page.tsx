@@ -538,8 +538,9 @@ export const VehicleMaintenancesPage = () => {
   return (
     <section className="space-y-3">
       <PageHeader
+        eyebrow="Flotta"
         title="Manutenzioni Veicoli"
-        subtitle="Registro interventi effettuati su ogni mezzo con storico consultabile e filtro rapido."
+        subtitle="Programma gli interventi e conserva costi, allegati e storico per ciascun mezzo."
         actions={
           <>
             {canExportCsv ? (

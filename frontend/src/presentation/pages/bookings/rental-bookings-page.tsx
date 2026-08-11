@@ -17,6 +17,7 @@ import {
 import { masterDataUseCases } from "../../../application/usecases/master-data-usecases";
 import { RentalBookingMonthlyGrid } from "../../components/bookings/rental-booking-monthly-grid";
 import { FleetumInlineLoader } from "../../components/brand/fleetum-logo-loader";
+import { PageHeader } from "../../components/layout/page-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -33,6 +34,12 @@ import {
   StructuredAddressValue,
   countryNameFromCode
 } from "../../components/customers/customer-geography-fields";
+import {
+  addMinimumRentalDuration,
+  hasMinimumRentalDuration,
+  MINIMUM_RENTAL_DURATION_MESSAGE,
+  rentalDurationLabel
+} from "../../../domain/rental-booking-duration";
 
 type Site = {
   id: string;
@@ -421,8 +428,7 @@ const buildBookingFormForCell = (input?: { vehicleId: string; date: Date }): Boo
   const baseDate = input?.date ?? new Date();
   const pickup = new Date(baseDate);
   pickup.setHours(9, 0, 0, 0);
-  const ret = new Date(baseDate);
-  ret.setHours(18, 0, 0, 0);
+  const ret = addMinimumRentalDuration(pickup);
   return {
     mode: "create",
     vehicleId: input?.vehicleId ?? "",
@@ -506,6 +512,17 @@ export const RentalBookingsPage = () => {
 
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingForm, setBookingForm] = useState<BookingFormState>(() => buildBookingFormForCell());
+  const minimumReturnAt = useMemo(() => {
+    const pickup = new Date(bookingForm.pickupAt);
+    return Number.isNaN(pickup.getTime()) ? "" : toDateTimeInputValue(addMinimumRentalDuration(pickup));
+  }, [bookingForm.pickupAt]);
+  const bookingDuration = useMemo(
+    () => rentalDurationLabel(bookingForm.pickupAt, bookingForm.returnAt),
+    [bookingForm.pickupAt, bookingForm.returnAt]
+  );
+  const bookingDurationInvalid = Boolean(
+    bookingForm.pickupAt && bookingForm.returnAt && !hasMinimumRentalDuration(bookingForm.pickupAt, bookingForm.returnAt)
+  );
   const [bookingFormDirty, setBookingFormDirty] = useState(false);
   const [bookingCloseConfirmOpen, setBookingCloseConfirmOpen] = useState(false);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
@@ -587,21 +604,6 @@ export const RentalBookingsPage = () => {
     search: vehicleSearch || undefined,
     refreshKey
   });
-
-  const bookingSummaryPills = useMemo(
-    () => [
-      { label: "Veicoli", value: monthAvailability.summary.totalVehicles },
-      { label: "Occupati", value: monthAvailability.summary.bookedVehicles },
-      { label: "Liberi", value: monthAvailability.summary.availableVehicles },
-      { label: "Occupazione", value: `${monthAvailability.summary.occupancyRate}%` }
-    ],
-    [
-      monthAvailability.summary.availableVehicles,
-      monthAvailability.summary.bookedVehicles,
-      monthAvailability.summary.occupancyRate,
-      monthAvailability.summary.totalVehicles
-    ]
-  );
 
   const operationalStats = useMemo(() => {
     const todayKey = toDayKey(new Date());
@@ -933,7 +935,11 @@ export const RentalBookingsPage = () => {
     }
     const pickupAt = new Date(bookingForm.pickupAt);
     const returnAt = new Date(bookingForm.returnAt);
-    if (Number.isNaN(pickupAt.getTime()) || Number.isNaN(returnAt.getTime()) || returnAt.getTime() <= pickupAt.getTime()) {
+    if (
+      Number.isNaN(pickupAt.getTime()) ||
+      Number.isNaN(returnAt.getTime()) ||
+      !hasMinimumRentalDuration(pickupAt, returnAt)
+    ) {
       setPricingQuote(null);
       return;
     }
@@ -1275,13 +1281,22 @@ export const RentalBookingsPage = () => {
     setError(null);
     setSuccess(null);
     try {
+      const pickupAt = new Date(bookingForm.pickupAt);
+      const returnAt = new Date(bookingForm.returnAt);
+      if (Number.isNaN(pickupAt.getTime()) || Number.isNaN(returnAt.getTime())) {
+        throw new Error("Date prenotazione non valide.");
+      }
+      if (!hasMinimumRentalDuration(pickupAt, returnAt)) {
+        throw new Error(MINIMUM_RENTAL_DURATION_MESSAGE);
+      }
+
       const payload = {
         vehicleId: bookingForm.vehicleId,
         customerId: bookingForm.customerId,
         contractRequired: bookingForm.contractRequired,
         generateContract: bookingForm.generateContract,
-        pickupAt: new Date(bookingForm.pickupAt).toISOString(),
-        returnAt: new Date(bookingForm.returnAt).toISOString(),
+        pickupAt: pickupAt.toISOString(),
+        returnAt: returnAt.toISOString(),
         pickupKm: bookingForm.pickupKm ? Number(bookingForm.pickupKm) : undefined,
         returnKm: bookingForm.returnKm ? Number(bookingForm.returnKm) : undefined,
         pickupLocation: bookingForm.pickupLocation || undefined,
@@ -1292,9 +1307,6 @@ export const RentalBookingsPage = () => {
       };
       if (!payload.vehicleId || !payload.customerId) {
         throw new Error("Seleziona veicolo e cliente.");
-      }
-      if (Number.isNaN(new Date(payload.pickupAt).getTime()) || Number.isNaN(new Date(payload.returnAt).getTime())) {
-        throw new Error("Date prenotazione non valide.");
       }
       if ((payload.pickupKm ?? null) != null && Number.isNaN(payload.pickupKm as number)) {
         throw new Error("Km uscita non validi.");
@@ -1978,32 +1990,15 @@ export const RentalBookingsPage = () => {
   };
 
   return (
-    <section className="flex min-h-[calc(100vh-5.5rem)] flex-col gap-4 bg-slate-50/40 dark:bg-transparent">
-      <div className="saas-hero-header grid gap-5 rounded-[28px] border border-white/70 px-4 py-4 shadow-[0_24px_80px_-52px_rgba(15,23,42,0.55)] backdrop-blur lg:grid-cols-[minmax(280px,1fr)_auto] lg:items-center sm:px-6">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-primary/70">Centro operativo noleggi</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-foreground sm:text-3xl">Booking Noleggi</h1>
-          <p className="mt-2 max-w-[660px] text-sm leading-relaxed text-muted-foreground">
-            Calendario operativo per leggere consegne, riconsegne, disponibilita veicoli e stato prenotazioni per sede.
-          </p>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-3 lg:items-end">
-          <div className="hidden flex-wrap items-center justify-start gap-2 xl:flex xl:justify-end">
-            {bookingSummaryPills.map((pill) => (
-              <span
-                key={pill.label}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/70 bg-card/85 px-4 text-[11px] font-semibold shadow-sm"
-              >
-                <span className="text-muted-foreground">{pill.label}</span>
-                <span className="text-sm text-foreground">{pill.value}</span>
-              </span>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+    <section className="booking-workspace flex min-h-[calc(100vh-5.5rem)] flex-col gap-3">
+      <PageHeader
+        eyebrow="Centro operativo noleggi"
+        title="Prenotazioni"
+        subtitle="Disponibilità, consegne, riconsegne e prenotazioni per sede nella stessa timeline."
+        actions={
+          <>
             <Button
               variant="outline"
-              className="h-11 min-w-[170px] gap-2 rounded-2xl"
               onClick={() => {
                 setCustomerForm(defaultCustomerForm());
                 setCustomerScanFiles([]);
@@ -2014,29 +2009,32 @@ export const RentalBookingsPage = () => {
               <UserPlus className="h-4 w-4" aria-hidden="true" />
               Nuovo cliente
             </Button>
-            <Button className="h-11 min-w-[210px] gap-2 rounded-2xl" onClick={() => openCreateModalFromCell()}>
+            <Button onClick={() => openCreateModalFromCell()}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Nuova prenotazione
             </Button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
         {bookingMetricCards.map((metric) => {
           const Icon = metric.icon;
           return (
-          <div key={metric.label} className="rounded-[24px] border border-slate-200/80 bg-white/90 px-4 py-3.5 shadow-[0_18px_55px_-44px_rgba(15,23,42,0.75)] dark:border-border dark:bg-card/85">
+          <div
+            key={metric.label}
+            className="min-h-[96px] rounded-xl border border-border/80 bg-card px-3 py-2.5 shadow-sm last:col-span-2 xl:min-h-0 xl:last:col-span-1"
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{metric.label}</p>
-                <p className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-foreground">{metric.value}</p>
+                <p className="mt-1 text-lg font-semibold tracking-tight text-foreground sm:text-xl">{metric.value}</p>
               </div>
-              <span className={`grid h-10 w-10 place-items-center rounded-2xl border ${metric.tone}`}>
+              <span className={`grid h-8 w-8 place-items-center rounded-lg border ${metric.tone}`}>
                 <Icon className="h-4 w-4" aria-hidden="true" />
               </span>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">{metric.hint}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{metric.hint}</p>
           </div>
           );
         })}
@@ -2044,25 +2042,25 @@ export const RentalBookingsPage = () => {
 
       {error ? <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p> : null}
       {success ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</p> : null}
-      <Card className="saas-surface overflow-hidden border-slate-200/80 bg-white/95 shadow-[0_22px_70px_-54px_rgba(15,23,42,0.9)] dark:border-border dark:bg-card">
-        <CardContent className="!py-4 sm:!py-4">
-          <div className="flex min-h-[52px] flex-col justify-center gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="inline-flex h-11 items-center justify-between gap-2 rounded-2xl border bg-card/75 p-1 shadow-sm xl:min-w-[300px]">
-              <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl p-0" onClick={goPrevMonth} aria-label="Mese precedente">
+      <Card className="saas-surface overflow-hidden">
+        <CardContent className="!p-3 sm:!p-3">
+          <div className="flex flex-col justify-center gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="inline-flex h-9 items-center justify-between gap-1 rounded-lg border bg-card p-0.5 xl:min-w-[270px]">
+              <Button variant="ghost" size="sm" className="h-8 w-8 rounded-md p-0" onClick={goPrevMonth} aria-label="Mese precedente">
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
               </Button>
-              <div className="flex min-w-[170px] items-center justify-center gap-2 px-2 text-center text-sm font-semibold capitalize">
+              <div className="flex min-w-[160px] items-center justify-center gap-2 px-2 text-center text-sm font-semibold capitalize">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 {monthLabel}
               </div>
-              <Button variant="outline" size="sm" className="h-9 w-9 rounded-xl p-0" onClick={goNextMonth} aria-label="Mese successivo">
+              <Button variant="ghost" size="sm" className="h-8 w-8 rounded-md p-0" onClick={goNextMonth} aria-label="Mese successivo">
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
 
             <div className="grid flex-1 items-center gap-2 md:grid-cols-[minmax(150px,0.8fr)_minmax(150px,0.8fr)_minmax(220px,1.2fr)_auto] xl:max-w-[850px]">
               <div className="flex items-center">
-                <Select className="h-11 rounded-xl" value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label="Filtra sede booking">
+                <Select value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label="Filtra sede booking">
                   <option value="">Tutte le sedi</option>
                   {sites.map((site) => (
                     <option key={site.id} value={site.id}>
@@ -2073,7 +2071,6 @@ export const RentalBookingsPage = () => {
               </div>
 
               <Select
-                className="h-11 rounded-xl"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as RentalBookingStatus | "")}
                 aria-label="Filtra stato prenotazione"
@@ -2089,7 +2086,7 @@ export const RentalBookingsPage = () => {
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input
-                  className="h-11 rounded-xl pl-9"
+                  className="pl-9"
                   value={vehicleSearch}
                   onChange={(e) => setVehicleSearch(e.target.value)}
                   placeholder="Cerca targa, modello o cliente..."
@@ -2098,7 +2095,7 @@ export const RentalBookingsPage = () => {
               </div>
 
               <Button
-                className="h-11 rounded-xl gap-2"
+                className="gap-2"
                 variant="outline"
                 onClick={() => {
                   setSiteId("");
@@ -2111,10 +2108,14 @@ export const RentalBookingsPage = () => {
               </Button>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-border/60">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
             <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Legenda</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+              Disponibile
+            </span>
             {BOOKING_STATUS_LEGEND.map((item) => (
-              <span key={item.status} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${toBadgeClass(item.status)}`}>
+              <span key={item.status} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${toBadgeClass(item.status)}`}>
                 <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" aria-hidden="true" />
                 {item.tone}
               </span>
@@ -2123,9 +2124,9 @@ export const RentalBookingsPage = () => {
         </CardContent>
       </Card>
 
-      <div className="grid min-h-[calc(100vh-22rem)] flex-1 gap-3 2xl:grid-cols-[minmax(0,1fr)_390px]">
-        <Card className="saas-surface flex min-h-[620px] flex-col overflow-hidden border-slate-200/80 bg-white shadow-[0_26px_90px_-60px_rgba(15,23,42,0.85)] dark:border-border dark:bg-card">
-          <CardContent className="flex min-h-0 flex-1 flex-col p-2 sm:p-3">
+      <div className="grid min-h-[calc(100vh-18rem)] flex-1 gap-3 2xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Card className="saas-surface flex min-h-[680px] flex-col overflow-hidden">
+          <CardContent className="flex min-h-0 flex-1 flex-col p-1.5 sm:p-2">
             {monthAvailability.loading ? (
               <div className="space-y-2 p-2" aria-label="Caricamento calendario booking">
                 <FleetumInlineLoader label="Caricamento calendario" className="px-2 pb-1" />
@@ -2148,7 +2149,7 @@ export const RentalBookingsPage = () => {
               </div>
             ) : (
               <RentalBookingMonthlyGrid
-                className="h-full min-h-[590px]"
+                className="h-full min-h-[650px]"
                 monthKey={monthIso}
                 monthDays={days}
                 rows={monthAvailability.data}
@@ -2244,6 +2245,11 @@ export const RentalBookingsPage = () => {
                           : ""}
                       </p>
                     </div>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2 text-xs text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
+                    <span className="font-semibold">Durata noleggio</span>
+                    <span>{rentalDurationLabel(selectedBooking.pickupAt, selectedBooking.returnAt) ?? "Non disponibile"}</span>
                   </div>
 
                   <p className="mt-2 truncate text-xs text-muted-foreground">
@@ -2970,17 +2976,44 @@ export const RentalBookingsPage = () => {
                       <Label>Data/ora uscita</Label>
                       <Input
                         type="datetime-local"
+                        required
                         value={bookingForm.pickupAt}
-                        onChange={(e) => setBookingForm((s) => ({ ...s, pickupAt: e.target.value }))}
+                        onChange={(e) => {
+                          const pickupAt = e.target.value;
+                          setBookingForm((current) => {
+                            const pickup = new Date(pickupAt);
+                            if (Number.isNaN(pickup.getTime())) return { ...current, pickupAt };
+                            const currentReturn = new Date(current.returnAt);
+                            const returnAt = Number.isNaN(currentReturn.getTime()) || !hasMinimumRentalDuration(pickup, currentReturn)
+                              ? toDateTimeInputValue(addMinimumRentalDuration(pickup))
+                              : current.returnAt;
+                            return { ...current, pickupAt, returnAt };
+                          });
+                        }}
                       />
                     </div>
                     <div className="space-y-1">
                       <Label>Data/ora rientro</Label>
                       <Input
                         type="datetime-local"
+                        required
+                        min={minimumReturnAt || undefined}
                         value={bookingForm.returnAt}
                         onChange={(e) => setBookingForm((s) => ({ ...s, returnAt: e.target.value }))}
+                        aria-invalid={bookingDurationInvalid}
                       />
+                    </div>
+                    <div className="md:col-span-3">
+                      <div className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
+                        bookingDurationInvalid
+                          ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+                      }`} role="status">
+                        <span className="font-semibold">
+                          {bookingDurationInvalid ? MINIMUM_RENTAL_DURATION_MESSAGE : `Durata noleggio: ${bookingDuration ?? "da calcolare"}`}
+                        </span>
+                        <span>Minimo 1 giorno · 24 ore</span>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label>Km all'uscita</Label>

@@ -180,8 +180,9 @@ export const ProfileSettingsPage = () => {
   return (
     <section className="space-y-4">
       <PageHeader
+        eyebrow="Account"
         title="Profilo e Impostazioni"
-        subtitle="Gestisci i tuoi dati account e le preferenze operative del gestionale."
+        subtitle="Aggiorna dati personali, sicurezza e preferenze della tua area di lavoro."
       />
 
       <div className="grid gap-4 xl:grid-cols-3">

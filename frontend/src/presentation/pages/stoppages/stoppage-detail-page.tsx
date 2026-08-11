@@ -48,6 +48,7 @@ export const StoppageDetailPage = () => {
   return (
     <section className="space-y-4">
       <PageHeader
+        eyebrow="Fermi tecnici"
         title={`Dettaglio fermo ${data.vehicle.plate}`}
         subtitle="Storico completo: stato, timeline eventi, reminder inviati e documentazione foto."
       />
@@ -93,7 +94,7 @@ export const StoppageDetailPage = () => {
             </Button>
           </div>
           {template ? (
-            <div className="md:col-span-2 rounded-md border p-2 text-sm">
+            <div className="md:col-span-2 rounded-lg border border-border/70 bg-muted/20 p-3 text-sm">
               <p className="font-medium">{template.subject}</p>
               <pre className="whitespace-pre-wrap text-xs text-muted-foreground">{template.body}</pre>
             </div>
@@ -188,13 +189,13 @@ export const StoppageDetailPage = () => {
             </div>
             <div className="space-y-2">
               {(approvals.data?.requests ?? []).slice(0, 5).map((row: any) => (
-                <div key={row.id} className="rounded-md border p-2 text-xs">
+                <div key={row.id} className="rounded-lg border border-border/70 bg-muted/20 p-2.5 text-xs">
                   <p className="font-semibold">Richiesta € {row.estimatedTotalCost}</p>
                   <p className="text-muted-foreground">{new Date(row.createdAt).toLocaleString("it-IT")} · {row.reason}</p>
                 </div>
               ))}
               {(approvals.data?.decisions ?? []).slice(0, 5).map((row: any) => (
-                <div key={row.id} className="rounded-md border p-2 text-xs">
+                <div key={row.id} className="rounded-lg border border-border/70 bg-muted/20 p-2.5 text-xs">
                   <p className="font-semibold">{row.approved ? "Approvato" : "Rifiutato"} {row.approvedCost ? `· € ${row.approvedCost}` : ""}</p>
                   <p className="text-muted-foreground">{new Date(row.createdAt).toLocaleString("it-IT")} · {row.reason || "-"}</p>
                 </div>
@@ -246,7 +247,7 @@ export const StoppageDetailPage = () => {
         <CardContent>
           <ul className="space-y-2 text-sm">
             {(events.data?.data ?? []).map((event: any) => (
-              <li key={event.id} className="rounded-md border p-2">
+              <li key={event.id} className="rounded-lg border border-border/70 bg-muted/20 p-2.5">
                 <p className="font-medium">{event.message}</p>
                 <p className="text-muted-foreground">{new Date(event.createdAt).toLocaleString()} · {event.type}</p>
               </li>
@@ -295,7 +296,7 @@ export const StoppageDetailPage = () => {
           </Button>
           <div className="space-y-2">
             {(partsOrders.data?.data ?? []).map((row: any) => (
-              <div key={row.id} className="rounded-md border p-2 text-xs">
+              <div key={row.id} className="rounded-lg border border-border/70 bg-muted/20 p-2.5 text-xs">
                 <p className="font-semibold">{row.description}</p>
                 <p className="text-muted-foreground">
                   {new Date(row.createdAt).toLocaleString("it-IT")} · Fornitore: {row.supplier || "-"} · ETA: {row.etaDate || "-"} · Costo: {row.estimatedCost ? `€ ${row.estimatedCost}` : "-"}
@@ -316,7 +317,7 @@ export const StoppageDetailPage = () => {
         <CardContent>
           <ul className="space-y-2 text-sm">
             {(data.reminders || []).map((r: any) => (
-              <li key={r.id} className="rounded-md border p-2">
+              <li key={r.id} className="rounded-lg border border-border/70 bg-muted/20 p-2.5">
                 {new Date(r.sentAt).toLocaleString()} - {r.channel} - {r.type} - {r.success ? "OK" : "KO"}
               </li>
             ))}

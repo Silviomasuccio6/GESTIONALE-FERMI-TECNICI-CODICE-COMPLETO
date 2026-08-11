@@ -145,6 +145,7 @@ export const StoppagesListPage = () => {
   return (
     <section className="space-y-3">
       <PageHeader
+        eyebrow="Continuità operativa"
         title="Fermi Tecnici"
         subtitle="Controlla stato, priorità, reminder e assegnazioni da una vista centralizzata."
         actions={
@@ -156,10 +157,10 @@ export const StoppagesListPage = () => {
       />
 
       <Card className="saas-surface">
-        <CardContent className="py-6">
-          <div className="mx-auto flex min-h-[68px] w-full max-w-[1180px] flex-nowrap items-center justify-center gap-2">
+        <CardContent className="p-3">
+          <div className="grid w-full gap-2 md:grid-cols-[minmax(240px,1fr)_150px_150px_165px_auto]">
             <Input
-              className="h-9 w-[300px] min-w-[220px]"
+              className="h-9 min-w-0"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -169,7 +170,7 @@ export const StoppagesListPage = () => {
             />
 
             <Select
-              className="h-9 w-[150px]"
+              className="h-9 min-w-0"
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value);
@@ -182,7 +183,7 @@ export const StoppagesListPage = () => {
             </Select>
 
             <Select
-              className="h-9 w-[150px]"
+              className="h-9 min-w-0"
               value={siteId}
               onChange={(e) => {
                 setSiteId(e.target.value);
@@ -196,7 +197,7 @@ export const StoppagesListPage = () => {
             </Select>
 
             <Select
-              className="h-9 w-[165px]"
+              className="h-9 min-w-0"
               value={workshopId}
               onChange={(e) => {
                 setWorkshopId(e.target.value);
@@ -213,7 +214,7 @@ export const StoppagesListPage = () => {
               Reset
             </Button>
 
-            <div className="ml-1 flex shrink-0 items-center gap-2 text-[11px] font-medium text-muted-foreground">
+            <div className="flex items-center justify-end gap-3 text-[11px] font-medium text-muted-foreground md:col-span-5">
               <span>{rows.length}/{totalRows} fermi</span>
               <span>{alertRows.length} alert</span>
             </div>
@@ -227,7 +228,7 @@ export const StoppagesListPage = () => {
         <>
           <div className="space-y-3 md:hidden">
             {rows.map((item) => (
-              <Card key={item.id} className="shadow-sm">
+              <Card key={item.id} className="shadow-none">
                 <CardContent className="space-y-2 pt-4">
                   <p className="text-sm"><span className="text-muted-foreground">Targa: </span><span className="font-semibold">{item.vehicle?.plate}</span></p>
                   <p className="text-sm"><span className="text-muted-foreground">Veicolo: </span>{item.vehicle?.brand} {item.vehicle?.model}</p>
@@ -355,7 +356,7 @@ export const StoppagesListPage = () => {
               <p className="text-sm text-muted-foreground">Nessun alert operativo aperto.</p>
             ) : (
               alertRows.slice(0, 5).map((alert: any) => (
-                <div key={alert.id} className="rounded-md border p-2 text-sm">
+                <div key={alert.id} className="rounded-lg border border-border/70 bg-muted/20 p-2.5 text-sm">
                   <p className="font-medium">{alert.plate} - {alert.message}</p>
                   <p className="text-muted-foreground">{alert.site} / {alert.workshop} · {alert.daysOpen} giorni</p>
                 </div>

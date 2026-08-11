@@ -1,4 +1,5 @@
-import { FormEvent, MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
+import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../../application/stores/auth-store";
 import { authUseCases } from "../../../application/usecases/auth-usecases";
@@ -10,59 +11,12 @@ import { AuthBackToWebsite } from "./AuthBackToWebsite";
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-const GoogleLogo = () => (
-  <svg className="premium-login-social-icon" viewBox="0 0 24 24" aria-hidden>
-    <path
-      fill="#EA4335"
-      d="M12 10.2v3.9h5.5c-.5 2.3-2.4 3.9-5.5 3.9a6 6 0 0 1 0-12c1.7 0 3.2.6 4.3 1.6l2.9-2.8A10 10 0 0 0 12 2a10 10 0 0 0 0 20c5.7 0 9.5-4 9.5-9.7 0-.7-.1-1.4-.2-2.1H12z"
-    />
-    <path
-      fill="#4285F4"
-      d="M21.5 12.3c0-.7-.1-1.4-.2-2.1H12v3.9h5.5c-.2 1-.8 1.9-1.6 2.5l2.6 2c1.6-1.5 3-3.8 3-6.3z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M6.9 14.2A6 6 0 0 1 6.9 9.8L3.8 7.4a10 10 0 0 0 0 9.2l3.1-2.4z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 22a10 10 0 0 0 6.8-2.5l-2.6-2c-.8.6-1.9 1-4.2 1a6 6 0 0 1-5.7-4.3l-3.1 2.4A10 10 0 0 0 12 22z"
-    />
-  </svg>
-);
-
-
-const MailIcon = () => (
-  <svg className="premium-login-field-icon" viewBox="0 0 24 24" aria-hidden>
-    <path d="M4.75 6.75h14.5v10.5H4.75V6.75Z" />
-    <path d="m5.25 7.25 6.75 5.2 6.75-5.2" />
-  </svg>
-);
-
-const LockIcon = () => (
-  <svg className="premium-login-field-icon" viewBox="0 0 24 24" aria-hidden>
-    <path d="M7.75 10.25V8.4a4.25 4.25 0 0 1 8.5 0v1.85" />
-    <path d="M6.25 10.25h11.5v8H6.25v-8Z" />
-    <path d="M12 13.35v1.8" />
-  </svg>
-);
-
-const EyeIcon = ({ hidden }: { hidden: boolean }) => (
-  <svg className="premium-login-eye-icon" viewBox="0 0 24 24" aria-hidden>
-    <path d="M3.75 12s2.75-5.25 8.25-5.25S20.25 12 20.25 12s-2.75 5.25-8.25 5.25S3.75 12 3.75 12Z" />
-    <path d="M12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z" />
-    {hidden ? <path d="M4.75 19.25 19.25 4.75" /> : null}
-  </svg>
-);
-
 export const LoginCard = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const setSession = useAuthStore((state) => state.setSession);
   const apiBaseUrl = getApiBaseUrl();
   const googleAuthUrl = (import.meta.env.VITE_GOOGLE_AUTH_URL as string | undefined) ?? `${apiBaseUrl}/auth/google`;
-
-  const cardRef = useRef<HTMLDivElement>(null);
 
   const returnTo = getSafeReturnTo(searchParams.get("next"));
   const welcome = searchParams.get("welcome");
@@ -88,21 +42,6 @@ export const LoginCard = () => {
   const triggerShake = () => {
     setShake(true);
     window.setTimeout(() => setShake(false), 450);
-  };
-
-  const handleTilt = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-    cardRef.current.style.transform = `perspective(900px) rotateY(${x * 5}deg) rotateX(${-y * 4}deg)`;
-    cardRef.current.style.transition = "transform 120ms ease";
-  };
-
-  const resetTilt = () => {
-    if (!cardRef.current) return;
-    cardRef.current.style.transform = "perspective(900px) rotateY(0deg) rotateX(0deg)";
-    cardRef.current.style.transition = "transform 500ms cubic-bezier(0.23,1,0.32,1)";
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -137,12 +76,7 @@ export const LoginCard = () => {
 
   return (
     <section className="premium-login-card-wrap">
-      <div
-        ref={cardRef}
-        className={`premium-login-card ${shake ? "animate-shake" : ""}`}
-        onMouseMove={handleTilt}
-        onMouseLeave={resetTilt}
-      >
+      <div className={`premium-login-card ${shake ? "animate-shake" : ""}`}>
         <AuthBackToWebsite />
         <div className="premium-login-card-head">
           <img className="premium-login-card-logo premium-login-card-logo--image" src="/brand/fleetum-symbol-color.svg" alt="Fleetum" />
@@ -159,7 +93,7 @@ export const LoginCard = () => {
               className="premium-login-social-btn premium-login-social-btn--google"
               onClick={openGoogleAuth}
             >
-              <GoogleLogo />
+              <img className="premium-login-social-icon" src="/brand/google-g.svg" alt="" aria-hidden="true" />
               <span>Continua con Google</span>
             </button>
           </div>
@@ -182,7 +116,7 @@ export const LoginCard = () => {
             Indirizzo email
           </label>
           <div className={`premium-login-field ${emailError ? "is-error" : ""} ${email && !emailError ? "is-ok" : ""}`}>
-            <span className="premium-login-field-icon-wrap"><MailIcon /></span>
+            <span className="premium-login-field-icon-wrap"><Mail className="premium-login-field-icon" aria-hidden="true" /></span>
             <input
               id="premium-login-email"
               type="email"
@@ -198,7 +132,7 @@ export const LoginCard = () => {
             Password
           </label>
           <div className={`premium-login-field ${passwordError ? "is-error" : ""} ${password && !passwordError ? "is-ok" : ""}`}>
-            <span className="premium-login-field-icon-wrap"><LockIcon /></span>
+            <span className="premium-login-field-icon-wrap"><LockKeyhole className="premium-login-field-icon" aria-hidden="true" /></span>
             <input
               id="premium-login-password"
               type={pwVisible ? "text" : "password"}
@@ -213,7 +147,7 @@ export const LoginCard = () => {
               className="premium-login-eye"
               onClick={() => setPwVisible((current) => !current)}
             >
-              <EyeIcon hidden={pwVisible} />
+              {pwVisible ? <EyeOff className="premium-login-eye-icon" aria-hidden="true" /> : <Eye className="premium-login-eye-icon" aria-hidden="true" />}
             </button>
           </div>
           {passwordError && <p className="premium-login-error">{passwordError}</p>}

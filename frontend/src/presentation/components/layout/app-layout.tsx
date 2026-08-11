@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   BellRing,
   Building2,
@@ -11,10 +11,12 @@ import {
   Gauge,
   KanbanSquare,
   LogOut,
+  MapPin,
   Menu,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
   ShieldCheck,
   Sun,
   TimerReset,
@@ -39,7 +41,6 @@ import { cn } from "../../../lib/utils";
 import { useEntitlements } from "../../hooks/use-entitlements";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { GBackground } from "./g-background";
 import { FleetumLanguageSwitcher } from "../i18n/fleetum-language-switcher";
 
 type NavItem = {
@@ -54,20 +55,13 @@ type NavItem = {
 
 const navSections: Array<{ title: string; items: NavItem[] }> = [
   {
-    title: "Panoramica",
+    title: "Operativo",
     items: [
       { key: "dashboard", to: "/dashboard", label: "Dashboard", icon: Gauge, match: (path) => path === "/dashboard" },
       {
-        key: "billing",
-        to: "/upgrade",
-        label: "Piano e fatturazione",
-        icon: CreditCard,
-        match: (path) => path.startsWith("/upgrade")
-      },
-      {
         key: "booking",
         to: "/booking",
-        label: "Booking Noleggi",
+        label: "Prenotazioni",
         icon: CalendarDays,
         match: (path) => path === "/booking"
       },
@@ -77,7 +71,15 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
         label: "Contratti Noleggio",
         icon: ClipboardList,
         match: (path) => path.startsWith("/booking/contratti")
-      },
+      }
+    ]
+  },
+  {
+    title: "Flotta",
+    items: [
+      { key: "veicoli", to: "/anagrafiche/veicoli", label: "Veicoli", icon: CarFront, match: (path) => path.startsWith("/anagrafiche/veicoli") },
+      { key: "manutenzioni", to: "/anagrafiche/manutenzioni", label: "Manutenzioni", icon: TimerReset, match: (path) => path.startsWith("/anagrafiche/manutenzioni") },
+      { key: "officine", to: "/anagrafiche/officine", label: "Officine", icon: Wrench, match: (path) => path.startsWith("/anagrafiche/officine") },
       {
         key: "booking-listini",
         to: "/booking/listini",
@@ -108,20 +110,6 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
               !path.startsWith("/fermi/calendario")
           },
           {
-            key: "scadenziario",
-            to: "/anagrafiche/scadenziario",
-            label: "Scadenziario",
-            icon: BellRing,
-            match: (path) => path.startsWith("/anagrafiche/scadenziario")
-          },
-          {
-            key: "manutenzioni",
-            to: "/anagrafiche/manutenzioni",
-            label: "Manutenzioni",
-            icon: TimerReset,
-            match: (path) => path.startsWith("/anagrafiche/manutenzioni")
-          },
-          {
             key: "fermi-kanban",
             to: "/fermi/kanban",
             label: "Kanban Fermi",
@@ -129,23 +117,12 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
             match: (path) => path.startsWith("/fermi/kanban")
           }
         ]
-      },
-      {
-        key: "statistiche",
-        to: "/statistiche",
-        label: "Statistiche",
-        icon: ChartColumnIncreasing,
-        feature: "reports_advanced",
-        match: (path) => path.startsWith("/statistiche")
       }
     ]
   },
   {
-    title: "Anagrafiche",
+    title: "Clienti",
     items: [
-      { key: "sedi", to: "/anagrafiche/sedi", label: "Sedi", icon: Building2, match: (path) => path.startsWith("/anagrafiche/sedi") },
-      { key: "officine", to: "/anagrafiche/officine", label: "Officine", icon: Wrench, match: (path) => path.startsWith("/anagrafiche/officine") },
-      { key: "veicoli", to: "/anagrafiche/veicoli", label: "Veicoli", icon: CarFront, match: (path) => path.startsWith("/anagrafiche/veicoli") },
       {
         key: "clienti",
         to: "/anagrafiche/clienti",
@@ -154,19 +131,41 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
         match: (path) => path.startsWith("/anagrafiche/clienti")
       }
     ]
+  },
+  {
+    title: "Azienda",
+    items: [
+      { key: "sedi", to: "/anagrafiche/sedi", label: "Sedi", icon: Building2, match: (path) => path.startsWith("/anagrafiche/sedi") },
+      {
+        key: "scadenziario-azienda",
+        to: "/anagrafiche/scadenziario",
+        label: "Scadenziario",
+        icon: BellRing,
+        match: (path) => path.startsWith("/anagrafiche/scadenziario")
+      },
+      {
+        key: "statistiche",
+        to: "/statistiche",
+        label: "Statistiche",
+        icon: ChartColumnIncreasing,
+        feature: "reports_advanced",
+        match: (path) => path.startsWith("/statistiche")
+      },
+      {
+        key: "billing",
+        to: "/upgrade",
+        label: "Piano e fatturazione",
+        icon: CreditCard,
+        match: (path) => path.startsWith("/upgrade")
+      }
+    ]
   }];
 
 const mobileNavItems: Array<{ to: string; label: string; icon: any; feature?: FeatureKey }> = [
   { to: "/dashboard", label: "Dashboard", icon: Gauge },
-  { to: "/booking", label: "Booking", icon: CalendarDays },
+  { to: "/booking", label: "Prenotazioni", icon: CalendarDays },
   { to: "/booking/contratti", label: "Contratti", icon: ClipboardList },
-  { to: "/booking/listini", label: "Listini", icon: ChartColumnIncreasing },
-  { to: "/fermi/calendario", label: "Calendario", icon: CalendarDays },
-  { to: "/fermi", label: "Fermi", icon: ClipboardList },
-  { to: "/anagrafiche/scadenziario", label: "Scadenze", icon: BellRing },
-  { to: "/anagrafiche/clienti", label: "Clienti", icon: Users },
-  { to: "/fermi/kanban", label: "Kanban", icon: KanbanSquare },
-  { to: "/statistiche", label: "Statistiche", icon: ChartColumnIncreasing, feature: "reports_advanced" }
+  { to: "/anagrafiche/veicoli", label: "Veicoli", icon: CarFront }
 ];
 
 export const AppLayout = () => {
@@ -179,6 +178,7 @@ export const AppLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [navigationQuery, setNavigationQuery] = useState("");
   const [notifications, setNotifications] = useState<any[]>([]);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
   const [backendReachable, setBackendReachable] = useState(true);
@@ -444,6 +444,15 @@ export const AppLayout = () => {
     [can, entitlementsLoaded]
   );
 
+  const searchableNavItems = useMemo(
+    () =>
+      visibleNavSections
+        .flatMap((section) => section.items)
+        .flatMap((item) => (item.children?.length ? item.children : [item]))
+        .filter((item): item is NavItem & { to: string } => Boolean(item.to)),
+    [visibleNavSections]
+  );
+
   const activeLabel = useMemo(() => {
     const findActiveLabel = (items: NavItem[]): string | null => {
       for (const item of items) {
@@ -465,6 +474,27 @@ export const AppLayout = () => {
     return "Fleetum";
   }, [location.pathname, visibleNavSections]);
 
+  const todayLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat("it-IT", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }).format(new Date()),
+    []
+  );
+
+  const submitNavigationSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = navigationQuery.trim().toLocaleLowerCase("it-IT");
+    if (!query) return;
+    const match = searchableNavItems.find((item) => item.label.toLocaleLowerCase("it-IT").includes(query));
+    if (!match) return;
+    setNavigationQuery("");
+    navigate(match.to);
+  };
+
   const flattenedMobileSidebarItems = useMemo(
     () =>
       visibleNavSections
@@ -475,7 +505,7 @@ export const AppLayout = () => {
   );
 
   const isCalendarRoute = location.pathname.startsWith("/fermi/calendario");
-  const isWideWorkspaceRoute = isCalendarRoute || location.pathname === "/booking";
+  const isWideWorkspaceRoute = isCalendarRoute || location.pathname === "/booking" || location.pathname === "/dashboard";
 
   const visibleNotifications = useMemo(
     () => notifications.filter((item) => !dismissedNotificationIds.includes(item.id)),
@@ -578,13 +608,12 @@ export const AppLayout = () => {
 
   return (
     <div className="post-login-shell relative min-h-screen overflow-hidden g-scroll">
-      <GBackground />
       <div className="post-login-shell__content relative z-10">
       <div className="saas-topbar post-login-topbar fixed inset-x-0 top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-card/85">
         <div
           className={cn(
-            "mx-auto flex h-16 w-full max-w-[1460px] min-w-0 items-center justify-between gap-3 px-4 sm:px-6",
-            sidebarHidden ? "lg:pl-6" : "lg:pl-[304px]"
+            "grid h-16 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 sm:px-6 lg:grid-cols-[minmax(220px,0.75fr)_minmax(280px,1.25fr)_auto]",
+            sidebarHidden ? "lg:pl-6" : "lg:pl-[248px]"
           )}
         >
           <div className="flex min-w-0 items-center gap-3">
@@ -592,10 +621,34 @@ export const AppLayout = () => {
               <Menu className="h-5 w-5" />
             </Button>
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Pannello operativo</p>
-              <p className="truncate text-sm font-semibold text-foreground">{activeLabel}</p>
+              {location.pathname === "/dashboard" ? (
+                <>
+                  <p className="truncate text-base font-semibold leading-5 text-foreground">Buongiorno, {user?.firstName ?? ""}</p>
+                  <p className="mt-0.5 truncate text-[11px] capitalize text-muted-foreground">{todayLabel}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Area operativa</p>
+                  <p className="truncate text-sm font-semibold leading-5 text-foreground">{activeLabel}</p>
+                </>
+              )}
             </div>
           </div>
+
+          <form className="dashboard-global-search hidden min-w-0 lg:flex" onSubmit={submitNavigationSearch} role="search">
+            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <input
+              value={navigationQuery}
+              onChange={(event) => setNavigationQuery(event.target.value)}
+              placeholder="Cerca sezioni e funzioni..."
+              aria-label="Cerca nelle sezioni del gestionale"
+              list="fleetum-navigation-results"
+            />
+            <datalist id="fleetum-navigation-results">
+              {searchableNavItems.map((item) => <option key={item.key} value={item.label} />)}
+            </datalist>
+            <kbd>Invio</kbd>
+          </form>
 
           <div className="topbar-controls-zone flex h-full shrink-0 items-center self-stretch gap-2.5 sm:gap-3">
             <Button variant="outline" size="icon" className="hidden lg:inline-flex" onClick={toggleSidebar}>
@@ -606,7 +659,7 @@ export const AppLayout = () => {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-10 w-10"
+                className="h-9 w-9"
                 aria-label="Apri notifiche"
                 onClick={() => {
                   setNotificationsOpen((v) => !v);
@@ -728,26 +781,26 @@ export const AppLayout = () => {
               ) : null}
             </div>
 
-            <Button variant="outline" size="icon" className="h-10 w-10" onClick={toggleTheme} aria-label="Cambia tema">
+            <Button variant="outline" size="icon" className="h-9 w-9" onClick={toggleTheme} aria-label="Cambia tema">
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
-            <FleetumLanguageSwitcher className="premium-language-switcher--topbar" />
+            <FleetumLanguageSwitcher className="premium-language-switcher--topbar hidden xl:inline-flex" />
 
             <div ref={profileMenuRef} className="relative">
               <Button
                 variant="outline"
-                className="h-10 rounded-full px-3.5 shadow-[0_12px_28px_-20px_rgba(99,102,241,0.38)]"
+                className="h-9 rounded-lg px-2.5"
                 aria-label="Apri menu profilo"
                 onClick={() => {
                   setProfileOpen((v) => !v);
                   setNotificationsOpen(false);
                 }}
               >
-                <span className="mr-2.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                <span className="mr-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                   {displayedPlan}
                 </span>
-                <span className="grid h-7 w-7 place-items-center rounded-full border bg-card text-sm font-medium">
+                <span className="grid h-6 w-6 place-items-center rounded-full border bg-muted/50 text-xs font-semibold">
                   {(user?.firstName?.[0] ?? "U").toUpperCase()}
                 </span>
               </Button>
@@ -832,26 +885,28 @@ export const AppLayout = () => {
                 </div>
               ) : null}
             </div>
+
           </div>
         </div>
       </div>
 
       <aside
         className={cn(
-          "saas-sidebar fixed bottom-0 left-0 top-0 z-[45] hidden w-72 flex-col px-5 pb-6 pt-3 text-slate-800 transition-transform duration-300 dark:text-slate-200 lg:flex",
+          "saas-sidebar g-sidebar fixed bottom-0 left-0 top-0 z-[45] hidden w-56 flex-col px-3 pb-4 pt-4 text-slate-800 transition-transform duration-300 dark:text-slate-200 lg:flex",
           sidebarHidden ? "-translate-x-full lg:pointer-events-none" : "translate-x-0"
         )}
       >
-        <div className="saas-surface g-card g-card-anim rounded-xl p-4">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Fleetum</p>
-            <img src="/brand/fleetum-logo-full-light.svg" alt="Fleetum" className="mt-1 h-8 w-auto max-w-[176px] object-contain dark:hidden" />
-            <img src="/brand/fleetum-logo-full-dark.svg" alt="Fleetum" className="mt-1 hidden h-8 w-auto max-w-[176px] object-contain dark:block" />
-          </div>
-          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">{user?.firstName} {user?.lastName}</p>
-        </div>
+        <Link
+          to="/dashboard"
+          onClick={scrollToTop}
+          aria-label="Vai alla dashboard Fleetum"
+          className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200/80 bg-white/80 shadow-[0_14px_34px_-24px_rgba(15,23,42,0.8)] transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_18px_38px_-24px_rgba(37,99,235,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-white/10 dark:bg-white/[0.06]"
+        >
+          <img src="/brand/fleetum-symbol-for-light-bg.svg" alt="" className="h-auto w-11 object-contain dark:hidden" />
+          <img src="/brand/fleetum-symbol-for-dark-bg.svg" alt="" className="hidden h-auto w-11 object-contain dark:block" />
+        </Link>
 
-        <nav className="mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pb-6 pr-1">
+        <nav className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pb-4 pr-1">
           {visibleNavSections.map((section) => (
             <div key={section.title}>
               <p className="g-section-label mb-2 px-2">{section.title}</p>
@@ -871,7 +926,7 @@ export const AppLayout = () => {
                           aria-controls={contentId}
                           onClick={() => setOpenNavGroups((old) => ({ ...old, [item.key]: !old[item.key] }))}
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition duration-200",
+                            "relative flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13px] transition duration-150",
                             active
                               ? "g-nav-active bg-primary text-primary-foreground"
                               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
@@ -898,7 +953,7 @@ export const AppLayout = () => {
                                   to={child.to ?? "#"}
                                   onClick={scrollToTop}
                                   className={cn(
-                                    "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition duration-200",
+                                    "relative flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] transition duration-150",
                                     childActive
                                       ? "g-nav-active bg-primary text-primary-foreground"
                                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
@@ -920,7 +975,7 @@ export const AppLayout = () => {
                       to={item.to ?? "#"}
                       onClick={scrollToTop}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition duration-200",
+                        "relative flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] transition duration-150",
                         active
                           ? "g-nav-active bg-primary text-primary-foreground"
                           : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
@@ -935,6 +990,20 @@ export const AppLayout = () => {
             </div>
           ))}
         </nav>
+
+        <Link
+          to="/anagrafiche/sedi"
+          onClick={scrollToTop}
+          className="dashboard-site-switcher"
+          aria-label="Apri la gestione delle sedi"
+        >
+          <span><MapPin className="h-4 w-4" /></span>
+          <span>
+            <small>Rete operativa</small>
+            <b>Gestisci sedi</b>
+          </span>
+          <ChevronDown className="ml-auto h-4 w-4 -rotate-90" />
+        </Link>
       </aside>
 
       <div
@@ -950,11 +1019,24 @@ export const AppLayout = () => {
           )}
         >
           <div className="mb-4 flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Menu</p>
-              <img src="/brand/fleetum-logo-full-light.svg" alt="Fleetum" className="mt-0.5 h-6 w-auto max-w-[145px] object-contain dark:hidden" />
-              <img src="/brand/fleetum-logo-full-dark.svg" alt="Fleetum" className="mt-0.5 hidden h-6 w-auto max-w-[145px] object-contain dark:block" />
-            </div>
+            <Link
+              to="/dashboard"
+              onClick={() => {
+                setMobileOpen(false);
+                scrollToTop();
+              }}
+              className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label="Vai alla dashboard Fleetum"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm dark:border-white/10 dark:bg-white/[0.06]">
+                <img src="/brand/fleetum-symbol-for-light-bg.svg" alt="" className="h-auto w-10 object-contain dark:hidden" />
+                <img src="/brand/fleetum-symbol-for-dark-bg.svg" alt="" className="hidden h-auto w-10 object-contain dark:block" />
+              </span>
+              <span className="text-left">
+                <b className="block text-sm font-semibold text-slate-950 dark:text-white">Fleetum</b>
+                <small className="block text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Menu operativo</small>
+              </span>
+            </Link>
             <Button variant="outline" size="icon" onClick={() => setMobileOpen(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -988,11 +1070,11 @@ export const AppLayout = () => {
       <main
         className={cn(
           "pb-24 pt-[4.5rem] lg:pb-10",
-          sidebarHidden ? "lg:ml-0" : "lg:ml-72",
+          sidebarHidden ? "lg:ml-0" : "lg:ml-56",
           isWideWorkspaceRoute && "pb-8"
         )}
       >
-        <div className={cn("mx-auto w-full px-4 sm:px-6", isWideWorkspaceRoute ? "max-w-none lg:px-4" : "max-w-[1460px]")}>
+        <div className={cn("mx-auto w-full px-4 sm:px-6", isWideWorkspaceRoute ? "max-w-none lg:px-4" : "max-w-[1680px]")}>
           {!backendReachable ? (
             <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               Backend non raggiungibile. Verifica che API e database siano attivi. (tentativi falliti: {healthFailures})
@@ -1037,10 +1119,12 @@ export const AppLayout = () => {
       ) : null}
 
       <div className="saas-floating-panel fixed inset-x-3 bottom-3 z-40 rounded-2xl border-border/60 p-2 lg:hidden">
-        <div className="grid grid-cols-6 gap-1">
+        <div className="grid grid-cols-5 gap-1">
             {visibleMobileNavItems.map((item) => {
               const active =
-                item.to === "/fermi"
+                item.to === "/dashboard" || item.to === "/booking"
+                ? location.pathname === item.to
+                : item.to === "/fermi"
                 ? location.pathname.startsWith("/fermi") &&
                   !location.pathname.startsWith("/fermi/kanban") &&
                   !location.pathname.startsWith("/fermi/calendario")
@@ -1062,6 +1146,18 @@ export const AppLayout = () => {
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium",
+              mobileOpen ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+            )}
+            aria-label="Apri menu completo"
+          >
+            <Menu className="h-4 w-4" aria-hidden="true" />
+            Menu
+          </button>
         </div>
       </div>
     </div>
